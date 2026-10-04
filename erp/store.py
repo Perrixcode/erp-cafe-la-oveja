@@ -208,6 +208,8 @@ class Store:
         linked = reconcile_sale(self,source_id,transaction,candidate,money,is_test,receipt)
         if linked is not None:return linked
         if parsed is None:raise ValueError('comment_not_text')
+        if channel_from_platform(parsed['platform'])=='Web/Mercat':
+            raise ValueError('web_delivery_contract_requires_review')
         if parsed['issues']:
             raise ValueError('comment_requires_review:' + ','.join(parsed['issues']))
         hold_possible_duplicate(self,source_id,transaction,candidate,parsed,is_test)

@@ -95,6 +95,7 @@ def immediate_eligible(sale,alert,order_id,decision):
         if reference.tzinfo is None:reference=reference.replace(tzinfo=timezone.utc)
         parsed=parse_comment(row.get('comment') or '',reference.astimezone(ZoneInfo('America/Santiago')).date())
     except (ValueError,TypeError,KeyError):return False
+    if channel_from_platform(parsed['platform'])=='Web/Mercat':return False
     return bool(parsed['issues'] or any(w in ('telefono_pendiente','telefono_por_revisar') for w in parsed['warnings']))
 
 
@@ -132,6 +133,7 @@ def context(store,received,include_history=False):
         result['can_classify_immediate']=immediate_eligible(sale,alert,order_id,decision)
         result['parsed']=parse_comment(original,reference_time.astimezone(ZoneInfo('America/Santiago')).date())
         result['channel']=channel_from_platform(result['parsed']['platform'])
+        result['web_delivery_review']=result['channel']=='Web/Mercat'
         result['original_comment']=original
         labels={'nombre_pendiente':'Nombre y apellido','fecha_pendiente':'Fecha de entrega','horario_pendiente':'Hora de entrega','telefono_pendiente':'Teléfono','telefono_por_revisar':'Teléfono por revisar','dia_semana_no_coincide':'Día y fecha no coinciden'}
         result['missing_fields']=[labels.get(code,'Comentario por revisar') for code in result['parsed']['issues']+result['parsed']['warnings'] if code in labels or code.startswith('campo_repetido_')]

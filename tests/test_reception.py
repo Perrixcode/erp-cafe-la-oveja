@@ -179,4 +179,13 @@ class ReceptionTests(unittest.TestCase):
     def test_platform_aliases(self):
         for raw,expected in [('Local','Presencial'),(' IG ','Instagram'),('Instagram','Instagram'),('web','Web/Mercat'),('Mercat','Web/Mercat'),('Otro','No informado')]:self.assertEqual(channel_from_platform(raw),expected)
 
+    def test_web_customer_data_never_proves_delivery_type_or_completed_delivery(self):
+        for extra in ('', '\nTeléfono: 000000000\nFecha: 30/10/2026\nHorario: 18:00'):
+            row,candidate,received=self.prepare(comment='Nombre: Cliente web ficticio\nPlataforma: WEB'+extra)
+            details=reception.context(self.store,received)
+            self.assertTrue(details['web_delivery_review']);self.assertFalse(details['can_classify_immediate'])
+            with self.assertRaisesRegex(ValueError,'web_delivery_contract_requires_review'):
+                self.store.import_toteat_schedule(self.scope,row,candidate)
+            self.assertIsNone(details['decision']);self.assertIsNone(details['order_id'])
+
 if __name__=='__main__':unittest.main()
