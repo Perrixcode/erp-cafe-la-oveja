@@ -16,6 +16,10 @@ Esta sección reemplaza los conteos y el estado de demo de los checkpoints hist�
 
 ## Checkpoints históricos
 
+### Ajuste posterior de sonido
+
+A petición del usuario, el aviso usa una campanita con tres parciales y caída progresiva de 1,98 segundos, conservando activación expresa, silencio y seguimiento de avisos. Verificado en navegador dedicado: AudioContext activo después de clic confiable; emisión de los tres parciales; render offline con energía decreciente hasta la cola y silencio después de dos segundos; pico 0,0685, sin clipping. No se afirma escucha física. Sintaxis JS, pruebas de notificaciones y diff correctos. No se crean pedidos para esta comprobación.
+
 ## Carpeta y preservación
 
 El proyecto está en la carpeta ERP Oveja seleccionada. Se compararon/copiaron 18 archivos de código, documentación, fixtures y pruebas desde el checkpoint anterior; SHA-256 idéntico antes de aplicar mejoras. Se conservó `.git` del destino. No se copió la base de datos, cachés ni credenciales; el origen no se borró ni modificó.

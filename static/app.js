@@ -319,10 +319,18 @@ function renderNotificationPopup() {
 }
 function playNoticeSound() {
   if(!soundEnabled || notificationAudio?.state!=='running') return;
-  const oscillator=notificationAudio.createOscillator(),gain=notificationAudio.createGain(),time=notificationAudio.currentTime;
-  oscillator.type='sine';oscillator.frequency.setValueAtTime(740,time);
-  gain.gain.setValueAtTime(0,time);gain.gain.linearRampToValueAtTime(0.045,time+0.015);gain.gain.exponentialRampToValueAtTime(0.001,time+0.17);
-  oscillator.connect(gain);gain.connect(notificationAudio.destination);oscillator.start(time);oscillator.stop(time+0.18);
+  const time=notificationAudio.currentTime;
+  // Ataque suave y parciales metálicos: una campanita con caída natural.
+  for(const [ratio,volume,decay] of [[1,0.05,1.95],[2.76,0.014,1.1],[5.4,0.006,0.55]]) {
+    const oscillator=notificationAudio.createOscillator(),gain=notificationAudio.createGain();
+    oscillator.type='sine';oscillator.frequency.setValueAtTime(1046.5*ratio,time);
+    gain.gain.setValueAtTime(0,time);gain.gain.linearRampToValueAtTime(volume,time+0.008);
+    gain.gain.exponentialRampToValueAtTime(0.0001,time+decay);
+    gain.gain.linearRampToValueAtTime(0,time+decay+0.025);
+    oscillator.connect(gain);gain.connect(notificationAudio.destination);
+    oscillator.onended=()=>{oscillator.disconnect();gain.disconnect();};
+    oscillator.start(time);oscillator.stop(time+decay+0.03);
+  }
 }
 async function applyNotifications(items,scope,sequence) {
   if(sequence<acceptedNoticeSequence) return;
@@ -367,7 +375,7 @@ $('#notification-sound').addEventListener('click',async()=>{
   }
   $('#notification-sound').textContent=soundEnabled?'Silenciar':'Activar sonido';
   $('#notification-sound').setAttribute('aria-pressed',String(soundEnabled));
-  $('#notification-audio-status').textContent=soundEnabled?'Sonido corto para solicitudes nuevas':'Sonido desactivado · los avisos visuales siguen activos';
+  $('#notification-audio-status').textContent=soundEnabled?'Campanita para solicitudes nuevas':'Sonido desactivado · los avisos visuales siguen activos';
 });
 document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('#notification-popup').classList.contains('hidden')){event.preventDefault();closeNotifications();}});
 document.addEventListener('click',event=>{if(!event.target.closest('.notification-anchor')&&!$('#notification-popup').classList.contains('hidden'))closeNotifications(false);});

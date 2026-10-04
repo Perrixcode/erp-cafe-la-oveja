@@ -6,7 +6,7 @@ Prototipo local de **tortas y dulces enteros**: encargos pagados, marcado, coord
 
 ## Ejecutar la demo
 
-En la instalación con catálogo privado, pulsa **Simular pedido**. Selecciona Programada, un producto y confirma el pago ficticio. En el pedido, **Solicitar marcado** crea el aviso de la campana; **Activar sonido** habilita un tono corto para nuevas solicitudes en esa pestaña. Abrir el aviso no marca físicamente la torta. Inmediata se guarda entregada.
+En la instalación con catálogo privado, pulsa **Simular pedido**. Selecciona Programada, un producto y confirma el pago ficticio. En el pedido, **Solicitar marcado** crea el aviso de la campana; **Activar sonido** habilita una campanita con resonancia de unos dos segundos para nuevas solicitudes en esa pestaña. Abrir el aviso no marca físicamente la torta. Inmediata se guarda entregada.
 
 Las simulaciones llevan etiqueta **PRUEBA** y vistas separadas de la operación; no alteran stock ni indicadores operativos. **Retirar prueba** la conserva en **Pruebas retiradas**, desde donde se puede restaurar. Tras la limpieza del catálogo privado no se vuelven a cargar ejemplos iniciales.
 
