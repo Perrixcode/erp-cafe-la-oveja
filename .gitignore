@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.sqlite*
+*.db
+*.log
+.venv/
+.env*
+.DS_Store
+*.key
+*.pem
+*.p12
+private/
+attachments/
+qa/browser-profile/
+qa/*-legacy.jpg

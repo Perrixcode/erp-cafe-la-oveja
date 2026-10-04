@@ -1,0 +1,156 @@
+{
+  "format": "erp-demo-v1",
+  "notice": "FICTICIO. Modelo interno de ejemplo; NO es una respuesta ni un esquema de la API Toteat.",
+  "orders": [
+    {
+      "source": "demo-toteat",
+      "source_id": "DEMO-1001",
+      "channel": "Web/Mercat",
+      "customer": "Cliente demo Alba",
+      "day_offset": 0,
+      "time": "11:30",
+      "fulfillment": "retiro",
+      "comments": "Ejemplo: cumpleaños, escribir Feliz día. Compromiso futuro sin reserva de stock físico.",
+      "payment_confirmed": true,
+      "is_demo": true,
+      "items": [
+        {
+          "source_item_id": "1",
+          "flavor": "Frambuesa",
+          "size": "20 personas",
+          "sku": "DEMO-FRA-20",
+          "quantity": 1,
+          "kind": "torta",
+          "comments": "Sin vela"
+        }
+      ]
+    },
+    {
+      "source": "demo",
+      "source_id": "DEMO-1002",
+      "channel": "Instagram",
+      "customer": "Cliente demo Bruno",
+      "day_offset": 0,
+      "time": "13:00",
+      "fulfillment": "retiro",
+      "comments": "Pago simulado verificado. Un comprobante solo no acredita abono.",
+      "payment_confirmed": true,
+      "is_demo": true,
+      "demo_status": "marcado_solicitado",
+      "items": [
+        {
+          "source_item_id": "1",
+          "flavor": "Chocolate",
+          "size": "10 personas",
+          "sku": "DEMO-CHO-10",
+          "quantity": 2,
+          "kind": "torta",
+          "comments": "Uno con mensaje de cumpleaños"
+        }
+      ]
+    },
+    {
+      "source": "demo",
+      "source_id": "DEMO-1003",
+      "channel": "Presencial",
+      "customer": "Cliente demo Cata",
+      "day_offset": 0,
+      "time": "15:00",
+      "fulfillment": "retiro",
+      "comments": "Ejemplo de pedido con más de un ítem.",
+      "payment_confirmed": true,
+      "is_demo": true,
+      "items": [
+        {
+          "source_item_id": "1",
+          "flavor": "Frambuesa",
+          "size": "20 personas",
+          "sku": "DEMO-FRA-20",
+          "quantity": 1,
+          "kind": "torta",
+          "comments": ""
+        },
+        {
+          "source_item_id": "2",
+          "flavor": "Hoja manjar",
+          "size": "20 personas",
+          "sku": "DEMO-HOJA-20",
+          "quantity": 1,
+          "kind": "torta",
+          "comments": "Torta entera ficticia"
+        }
+      ]
+    },
+    {
+      "source": "demo-toteat",
+      "source_id": "DEMO-1004",
+      "channel": "Web/Mercat",
+      "customer": "Cliente demo Dani",
+      "day_offset": 0,
+      "time": "16:30",
+      "fulfillment": "despacho",
+      "comments": "Dirección ficticia: Calle Ejemplo 123. Despacho por coordinar.",
+      "payment_confirmed": true,
+      "is_demo": true,
+      "demo_status": "marcado",
+      "items": [
+        {
+          "source_item_id": "1",
+          "flavor": "Manjar nuez",
+          "size": "20 personas",
+          "sku": "DEMO-MAN-20",
+          "quantity": 1,
+          "kind": "torta",
+          "comments": "Torta física asignada en el ejemplo"
+        }
+      ]
+    },
+    {
+      "source": "demo",
+      "source_id": "DEMO-1005",
+      "channel": "Instagram",
+      "customer": "Cliente demo Emi",
+      "day_offset": 1,
+      "time": "12:00",
+      "fulfillment": "retiro",
+      "comments": "Pedido de mañana, sin movimientos de inventario.",
+      "payment_confirmed": true,
+      "is_demo": true,
+      "items": [
+        {
+          "source_item_id": "1",
+          "flavor": "Chocolate",
+          "size": "20 personas",
+          "sku": "DEMO-CHO-20",
+          "quantity": 1,
+          "kind": "torta",
+          "comments": ""
+        }
+      ]
+    },
+    {
+      "source": "demo",
+      "source_id": "DEMO-1006",
+      "channel": "Presencial",
+      "customer": "Cliente demo Fran",
+      "day_offset": 0,
+      "time": "10:00",
+      "fulfillment": "retiro",
+      "comments": "Ejemplo completado que permanece en el historial.",
+      "payment_confirmed": true,
+      "is_demo": true,
+      "demo_status": "entregado",
+      "items": [
+        {
+          "source_item_id": "1",
+          "flavor": "Chocolate",
+          "size": "10 personas",
+          "sku": "DEMO-CHO-10",
+          "quantity": 1,
+          "kind": "torta",
+          "comments": ""
+        }
+      ]
+    }
+  ]
+}
