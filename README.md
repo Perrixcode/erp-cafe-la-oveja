@@ -97,7 +97,7 @@ El siguiente paso, separado de la demo, es:
 python3 scripts/toteat_catalog_preview.py
 ```
 
-El usuario ingresa los identificadores, el token oculto y `CONSULTAR`. Recibe candidatos de **Tortas enteras** y **Dulces enteros** con los IDs y nombres realmente presentes en la respuesta; selecciona los números y confirma `VER`. La terminal muestra productos de esas categorías con `id`, `idToteat`, código local, nombre y cantidad de opciones, junto con un informe de excluidos. Es un filtro local: no se inventa un parámetro de categoría para Toteat.
+El usuario ingresa los identificadores, el token oculto y `CONSULTAR`. Recibe candidatos de **Tortas enteras** y **Dulces enteros** con los IDs y nombres realmente presentes en la respuesta; selecciona los números y confirma `VER`. La terminal muestra productos de esas categorías con `id`, `idToteat`, código local, nombre y cantidad de opciones, junto con un informe de excluidos. Es un filtro local: no se inventa un parámetro de categoría para Toteat. La coincidencia fuente usa el nombre completo confirmado `TORTAS ENTERAS - ¡Sin opción de escritura!` y `DULCES ENTEROS`; «Sin opción de escritura» es texto comercial, no un permiso API. Los IDs se obtienen de cada respuesta.
 
 Solo lee una vez, requiere `ok=true` y valida todas las filas. Excluye otras categorías, modificadores, trozos, formatos ambiguos y conflictos de identidad; colapsa duplicados exactos. La selección de categorías no se guarda. No importa a SQLite ni modifica Toteat. Los valores comerciales aparecen solo en la terminal del usuario; no se guardan archivos, precios, imágenes, descripciones ni credenciales. [Mapeo confirmado y límites](docs/TOTEAT_READONLY.md#vista-previa-del-catálogo).
 

@@ -12,7 +12,11 @@ if __package__:
 else:
     from toteat_diagnostic import DiagnosticError, query, validate
 
-TARGETS = ('Tortas enteras', 'Dulces enteros')
+SOURCE_CATEGORIES = {
+    'Tortas enteras': 'TORTAS ENTERAS - ¡Sin opción de escritura!',
+    'Dulces enteros': 'DULCES ENTEROS',
+}
+TARGETS = tuple(SOURCE_CATEGORIES)
 REASONS = {
     'outside_scope':'Fuera de las dos categorías autorizadas',
     'not_selected':'Categoría candidata no seleccionada por el usuario',
@@ -70,7 +74,7 @@ def inspect_catalog(payload):
         raise DiagnosticError('Toteat indicó ok=true, pero data no es una lista. No se previsualizó.')
     if len(rows)>20000:
         raise DiagnosticError('El catálogo supera el límite de esta vista previa.')
-    targets={label_key(name):name for name in TARGETS}
+    targets={label_key(source_name):label for label,source_name in SOURCE_CATEGORIES.items()}
     names=defaultdict(set); labels=defaultdict(set); counts=Counter(); identities=defaultdict(list)
     for index,row in enumerate(rows):
         if not isinstance(row,dict):continue
@@ -167,7 +171,7 @@ def show_categories(snapshot):
     for category in snapshot['category_conflicts']:
         print(f"EXCLUIDA: ID {display(category['id'])} tiene nombres incompatibles {display(category['labels'])}.")
     for target in snapshot['missing_targets']:
-        print(f'Sin coincidencia inequívoca: {target}. No se sustituyó por otra categoría.')
+        print(f'Sin coincidencia inequívoca: {target}. Nombre esperado: {display(SOURCE_CATEGORIES[target])}. No se sustituyó por otra categoría.')
 
 
 def choose_ids(snapshot, selection):

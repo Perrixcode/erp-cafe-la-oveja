@@ -11,7 +11,7 @@ from scripts.toteat_diagnostic import query
 from test_toteat_diagnostic import FAKE, IDS, Response
 
 
-def product(product_id='DEMO-P1',category='Tortas enteras',category_id='DEMO-C1',**changes):
+def product(product_id='DEMO-P1',category='TORTAS ENTERAS - ¡Sin opción de escritura!',category_id='DEMO-C1',**changes):
     return dict({'id':product_id,'category':category,'categoryId':category_id,'idToteat':101,
                  'localCode':'DEMO-ENT-20','name':'Torta ejemplo 20 personas','isModifier':False,
                  'modifiers':[],'price':99999,'description':'DESCRIPCION_NO_MOSTRAR',
@@ -30,6 +30,20 @@ class CatalogPreviewTests(unittest.TestCase):
         self.assertEqual([p['id'] for p in report['products']],['DEMO-P1','DEMO-P2'])
         self.assertEqual(report['excluded_counts'],{'outside_scope':2})
         self.assertEqual(report['received'],len(report['products'])+sum(report['excluded_counts'].values()))
+
+    def test_confirmed_full_commercial_name_keeps_readable_label_and_response_id(self):
+        snapshot=inspect_catalog(payload(
+            product('DEMO-EXACT',category_id='DEMO-CATEGORY-FROM-RESPONSE'),
+            product('DEMO-SHORT','Tortas enteras','DEMO-SHORT-CATEGORY'),
+            product('DEMO-SUFFIX','TORTAS ENTERAS - ¡Sin opción de escritura! Premium','DEMO-SUFFIX-CATEGORY')))
+        self.assertEqual(len(snapshot['categories']),1)
+        category=snapshot['categories'][0]
+        self.assertEqual(category['target'],'Tortas enteras')
+        self.assertEqual(category['id'],'DEMO-CATEGORY-FROM-RESPONSE')
+        self.assertEqual(category['labels'],['TORTAS ENTERAS - ¡Sin opción de escritura!'])
+        report=select_preview(snapshot,choose_ids(snapshot,'1'))
+        self.assertEqual([p['id'] for p in report['products']],['DEMO-EXACT'])
+        self.assertEqual(report['excluded_counts'],{'outside_scope':2})
 
     def test_unselected_and_unknown_categories_never_expand_scope(self):
         snapshot=inspect_catalog(payload(product(),product('DEMO-P2','Dulces enteros','DEMO-C2')))

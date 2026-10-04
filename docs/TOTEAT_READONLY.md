@@ -43,7 +43,7 @@ python3 scripts/toteat_catalog_preview.py
 El usuario ya obtuvo `ok=true` con `data` de 869 elementos. Se confirmó el esquema del primer registro; no se validaron automáticamente todos los elementos ni el catálogo para importar. Esta herramienta recorre cada fila de una nueva respuesta obtenida por el usuario.
 
 1. Ingresa restaurante/local/usuario API y token oculto; escribe `CONSULTAR` para una única lectura `products?activeProducts=true`.
-2. Revisa la tabla de nombres e IDs reales de categorías. Solo se proponen coincidencias completas de «Tortas enteras» y «Dulces enteros», normalizando mayúsculas y espacios. No se usan substrings ni IDs inventados.
+2. Revisa la tabla de nombres e IDs reales de categorías. Solo se proponen coincidencias completas de los nombres fuente confirmados «TORTAS ENTERAS - ¡Sin opción de escritura!» y «DULCES ENTEROS», normalizando mayúsculas y espacios. La etiqueta legible del primero sigue siendo «Tortas enteras». «Sin opción de escritura» pertenece al nombre comercial y no describe permisos de la API. No se usan substrings ni IDs inventados.
 3. Elige números de esa tabla, separados por coma. Si un nombre corresponde a varios IDs, se mantienen separados y el usuario elige. Un ID con nombres incompatibles se excluye. Si falta una categoría no se sustituye por otra.
 4. Escribe `VER` para mostrar los productos de la selección en tu terminal. Puedes cancelar antes de consultar o antes de mostrarlos.
 
