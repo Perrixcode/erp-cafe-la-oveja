@@ -1,0 +1,7 @@
+[Unit]
+Description=Daily ERP backup
+[Timer]
+OnCalendar=*-*-* 06:00:00 UTC
+Persistent=true
+[Install]
+WantedBy=timers.target

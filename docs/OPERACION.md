@@ -32,4 +32,12 @@ En un pedido demo nuevo, elegir explícitamente entrega programada o inmediata. 
 
 El panel Catálogo local distingue los productos incorporados manualmente de los ejemplos. Permite consultar formato, identidad de origen y disponibilidad desconocida cuando no existe conteo. La incorporación no representa conexión ni sincronización con Toteat.
 
-Los comentarios originales se conservan como texto: el reconocimiento automático de agendamientos y la autorización de no pagados todavía están pendientes. No ingresar clientes ni teléfonos reales en esta demo de pedidos.
+Los comentarios originales se conservan. En la instalación privada, ventas cerradas y saldadas con datos interpretables pasan automáticamente a Agendadas. Descuento total autorizado en Toteat y saldo cero también agenda, con etiqueta propia. La boleta es opcional. Los ejemplos públicos y QA usan solo datos ficticios; los datos reales recibidos de API permanecen privados. Manual SOS y la excepción sin pago están disponibles solo con sesión de socio, motivo e historial; sin pago se mantiene como estado independiente.
+
+Los socios autenticados pueden corregir cliente, teléfono, retiro/delivery, dirección y fecha/hora con motivo e historial. No se sobrescribe el comentario original ni se modifica Toteat. La fecha aparece en la tarjeta; simulaciones y operación mantienen rangos separados.
+
+## Acceso y navegación vigentes
+
+Todo el ERP requiere inicio de sesión. Socios administran y autorizan excepciones; producción consulta/solicita marcado/actualiza bases; caja consulta/ve boletas/registra entregas de ítems ya marcados. La cuenta autentica los cambios nuevos y no se puede elegir un responsable ajeno desde un formulario. El selector de perfiles demo fue retirado.
+
+Los nuevos módulos son solo estructura vacía y subpestañas; no capturan GPS, no leen GeoVictoria, no calculan remuneraciones ni conectan Power BI. La operación de tortas existente sigue en Pedidos de tortas. El usuario aprobó también las propuestas de costos/rentabilidad, gestión de clientes y activos/mantenimiento.

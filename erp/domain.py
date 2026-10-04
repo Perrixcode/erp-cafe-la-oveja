@@ -99,7 +99,7 @@ def stock_summary(rows):
 
 def whatsapp(orders, start, end, stock=None):
     # El texto es local: copiarlo nunca abre ni envía WhatsApp.
-    lines = ["DATOS FICTICIOS · PRUEBA LOCAL", "PRODUCTOS POR MARCAR"]
+    lines = ["DATOS FICTICIOS · PRUEBA LOCAL" if all(order.get('is_demo',True) for order in orders) else "OVEJA · ENCARGOS", "PRODUCTOS POR MARCAR"]
     if start != end:
         lines.append(f"Del {human_day(start)} ({start}) al {human_day(end)} ({end}), inclusive")
     else:

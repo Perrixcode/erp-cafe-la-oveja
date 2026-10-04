@@ -61,7 +61,7 @@ def inspect_open_orders(payload, product_ids):
         lines=document.get('line') if isinstance(document,dict) else None
         if not isinstance(lines,list):continue
         detailed+=1
-        matched=[line for line in lines if isinstance(line,dict) and type(line.get('productCodeToteat')) is int and line['productCodeToteat'] in product_ids]
+        matched=[line for line in lines if isinstance(line,dict) and line.get('isExtra') is False and type(line.get('productCodeToteat')) is int and line['productCodeToteat'] in product_ids]
         if matched:matches.append(row);matching_lines+=len(matched)
     comments=[item for row in matches for item in comment_evidence(row)]
     paths=sorted({item['path'] for item in comments if item['nonempty']})

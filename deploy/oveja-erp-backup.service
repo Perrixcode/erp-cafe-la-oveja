@@ -1,0 +1,14 @@
+[Unit]
+Description=Verified private ERP backup
+[Service]
+Type=oneshot
+User=oveja-erp
+Group=oveja-erp
+WorkingDirectory=/opt/oveja-erp/app
+ExecStart=/usr/bin/python3 scripts/backup_local.py --root /var/lib/oveja-erp
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/oveja-erp

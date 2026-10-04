@@ -1,0 +1,24 @@
+[Unit]
+Description=ERP Oveja bounded read-only Toteat reader
+After=network-online.target
+[Service]
+User=oveja-erp
+Group=oveja-erp
+WorkingDirectory=/opt/oveja-erp/app
+Environment=OVEJA_DATA_ROOT=/var/lib/oveja-erp
+Environment=PYTHONDONTWRITEBYTECODE=1
+LoadCredential=toteat:/etc/cafeteria/toteat_privado.json
+ExecStart=/usr/bin/python3 scripts/toteat_worker.py
+Restart=on-failure
+RestartSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/oveja-erp
+InaccessiblePaths=/var/lib/cafeteria
+MemoryMax=250M
+TasksMax=32
+[Install]
+WantedBy=multi-user.target

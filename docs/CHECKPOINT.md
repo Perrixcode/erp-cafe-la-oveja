@@ -1,4 +1,67 @@
+# Estado de la entrega actual · 4 octubre 2026
+
+Prioridad: activar ERP aislado en servidor, verificar login y servicios; publicar código autorizado sin datos privados. DNS confirmado hacia el host elegido. Carpetas/usuario/venv propios preparados; Caddy aún sin activar en este punto.
+
+Implementado y verificado con fixtures: recepción autorizada, cierre sin duplicación, clasificación inmediata, revisión de comentarios incompletos, canal desde Plataforma, anulaciones explícitas y revisión de NC/parciales. Inicio, transferencias del bot y preview/descarga de fotos en el mismo modal. Sin botón redundante Mi cuenta; Toma de pedido manual.
+
+Pruebas: 192 Python aprobadas y 4 nuevas de transporte WSGI/archivo/lectura Linux aprobadas; QA Chrome 1180/320 sin overflow ni errores JS para acceso/roles, Inicio, recepción y foto/venta elegida. Nuevos módulos personas, documentos y proveedores son estructura vacía. Facturas semanales: futuro texto copiable a WhatsApp, sin enviar.
+
+Pendiente al escribir: ensayo aislado del hook del bot con su entorno Python, publicación GitHub y activación de servicios/Caddy; retirar panel viejo solamente después de comprobar paridad de información. No se aplican rediseños de paleta pendientes de elección.
+
+## Registro histórico (los estados anteriores no describen la instalación actual)
+
 # Checkpoint verificado · 2026-10-04 UTC
+
+## Estado vigente: acceso integral, respaldos y estructura modular
+
+- Activado en <http://127.0.0.1:8765>, carpeta correcta, proceso web 83178. Sin despliegue, commit ni push.
+- Login profesional **ERP Oveja · Cocina y Café**; frase «Gestión clara. Equipo conectado.». Todo dato del ERP requiere sesión, incluidas las URLs directas a boletas, comentarios, historial, stock y notificaciones. Pantalla limpia al cerrar sesión y permisos comprobados por servidor.
+- Dos cuentas de socios preexistentes preservadas sin cambiar nombre, usuario, sal ni hash. Ninguna cuenta real fue creada por el agente. Perfiles adicionales disponibles mediante alta local interactiva `scripts/create_user.py`.
+- Socio: todas las operaciones; Producción: consulta, solicitar marcado y recetas; Caja: consulta, boletas y registrar entrega. Ya no existe selector que conceda permisos ni responsable arbitrario de formularios. Los cambios nuevos usan el usuario autenticado, y el historial anterior se conserva.
+- Tarjetas con día de semana, fecha y hora; panel de pendientes de próximos 7 días, vencidos, marcado, falta de pago y datos incompletos. Simulaciones separadas y módulos futuros vacíos.
+- Navegación solicitada: Pedidos de tortas (funcional); Despacho y reparto; Planificación de turnos; Control de asistencia; Conciliación de transferencias; Inventario y abastecimiento; Producción; Catálogo y proveedores; Analítica y reportes; Costos y rentabilidad; Gestión de clientes; Activos y mantenimiento. Subpestañas sin datos ni integraciones GPS, GeoVictoria o Power BI. Tres últimos módulos sugeridos y aceptados por el usuario; nombres profesionales solicitados. Navegación persiste al recargar y menú móvil compacto.
+- Respaldo automático local al arranque y cada 24 h con proceso activo; reintento 30 min ante fallo. SQLite + PDF + hashes de cuentas, manifiesto verificado y restauración solo a carpeta NUEVA. Copia privada local verificada a 20:51:57 UTC / 17:51:57 Chile. Falta respaldo externo cifrado, retención y servicio de producción.
+- **185 tests Python aprobados**; pruebas de permisos, cuentas heredadas, sesión/revocación, boletas, recuperación de SQLite/PDF/cuentas, archivos corruptos y separación de prioridades. Sintaxis JS y pruebas de notificaciones aprobadas.
+- QA Chrome dedicado con fixtures 1180/320: login obligatorio, permisos por rol, PDF protegido, día de semana, logout sin datos, sesión en recarga, módulos vacíos/subpestañas persistentes, sin overflow ni excepciones JS. Capturas seguras `qa/login-*-fake.png`, `qa/access-agenda-*-fake.png`, `qa/modules-*-fake.png`.
+- Activación real: todas las tablas de pedidos/ítems/historial/documentos/correcciones/SOS/vínculos preservadas por comparación de huellas; dos hashes de cuentas intactos. HTTP sin sesión: board/toteat/stock/receipt/notifications = 401. Lector abierto y ventas siguen `receiving`, búsqueda de turno automática activa. Evidencia privada `private/access-activation-evidence.json`. No se tocó el lector ni se cerró/abrió un turno real.
+- Pendientes de hosting precisados en `docs/PREPARACION_SERVIDOR.md`: SO/dominio, servidor web de producción/HTTPS, sesiones, servicio, lector macOS y copia externa. No exponer `http.server` a Internet.
+
+## Historial previo: Lectura → Agendadas, boleta y edición de socios
+
+- Carpeta correcta y servidor: `/Users/estebaniturra/Documents/ChatGPT/ERP Oveja`, <http://127.0.0.1:8765>. Sin despliegue ni cambios nuevos publicados.
+- Usuario confirmó automático: comanda abierta en Lectura; cierre y saldo comprobados con comentario válido → Agendadas. Desaparece de la bandeja, conserva identidad/evidencia y marcado solo desde el pedido agendado. API de transiciones exige evidencia de agendamiento para fuente Toteat.
+- **Evidencia real:** turno abierto el 2/10; consultas 296 y luego 297 transacciones; comentarios de 107 y 93 caracteres recuperados. Solo las dos pruebas del usuario se incorporaron. Una saldada con descuento total; otra pagada por **$100 según API**, no $1. PDF real vinculado y validado: **86.637 bytes**, privado y accesible en el ticket. No se emitió ni envió boleta.
+- Comprobación HTTP real después del reinicio: servidor sano, lector conectado, ventas actualizadas hace 37 s y automático activo para el turno 2/10; boleta de 86.637 bytes disponible. Ambas siguen marcadas PRUEBA. La segunda tiene dos ítems para **30/10/2026, 18:00** y aparece en Simulaciones de octubre. La primera conserva la fecha histórica del comentario y la solicitud de marcado que realizó el usuario. Sin modificaciones de sus datos durante QA.
+- Dos vistas distintas, actualización local cada 15 s, abiertas cada 30 s y ventas cada 90 s. Aviso/acceso a pruebas del rango evita la falsa apariencia de pérdida en Operación. Fecha y hora visibles en todas las tarjetas. Vista y período persisten en URL.
+- Datos de cliente editables solo con sesión de socio: nombre, teléfono, retiro/delivery, dirección, fecha y hora. Motivo/versión/cuenta auditados; comentario original, pago y boleta intactos. Corrección sobrevive sincronización y reinicio; resúmenes y avisos usan fecha corregida. SOS y autorización sin pago ya tienen servidor y UI para socios; ver la sección siguiente.
+- **Cuentas locales aún no creadas**: el usuario configura cada socio con `python3 scripts/create_partner.py`, contraseña oculta. Sin credenciales iniciales; scrypt, cookie HttpOnly/SameSite, sesión 8 h, límite de intentos. Los demás perfiles de demostración siguen sin autorización real integral.
+- **Pruebas sintéticas:** 174 tests Python aprobados, incluida la regresión de bloqueo de marcado sin evidencia. QA Chrome dedicado 1180/320: dos tickets sin duplicación en Lectura, fecha 30/10 visible, PDF ficticio ver/descargar, login de socio ficticio, edición a delivery/noviembre, doble clic, comentario intacto, recarga y persistencia; cero excepciones JS y sin desbordes. Evidencia: `qa/agenda-1180-fake.png`, `qa/agenda-320-fake.png`, `qa/customer-320-fake.png`, tickets ficticios anteriores.
+- **Continuidad automática activa y verificada 20:02:56 UTC:** usuario completó el handoff; helper autorizado, `shift_lookup_automatic=true`, `shiftstatus` real exitoso, 297 transacciones y dos pedidos sin duplicar. Se corrigió una suposición: `shiftstatus.date` avanza con la hora de respuesta y no acredita apertura. Se conserva el día de ventas comprobado 2/10 y se consultan días nuevos individualmente (2, 3 y 4/10 en este ciclo). Un error HTTP transitorio se recuperó con el reintento. No hay permiso pendiente ni se recompiló el binario. El cambio real de turno no se provocó ni se afirma probado. Evidencia: `private/automatic-shift-live-verification.json`.
+- Revisión de supervisor: exact match de restaurante/local/orden/pago y un solo evento de agendado por cada prueba; cliente/fecha/comentario idénticos al parseo fuente. PDF real local idéntico a HTTP, MIME `application/pdf`, descarga con `attachment`. Evidencia sanitaria privada: `private/supervisor-final-evidence.json`.
+- Se reparó un fallo del worker: una venta sin comentario ya no aborta el ciclo completo; queda en revisión mientras las siguientes válidas se agendan. Test de regresión, cambio de turno y handoff con rechazos/configuración concurrente incluidos. Worker reiniciado manteniendo binario/configuración aprobados.
+- Pendientes: comentario en abiertas omitido por los formatos probados; revisión de casos ambiguos/reembolsos/pagos múltiples; usuarios y acceso integral antes de despliegue. No se hacen escrituras a Toteat, stock ni envíos al cliente.
+
+## SOS y excepción sin pago · entrega local
+
+- **Activado 20:16:05 UTC**, con respaldo y comparación de tablas: pedidos, ítems, pagos, boleta e historial conservados; cero errores de claves foráneas y cero pedidos SOS creados en operación. HTTP real 20:16:44: servidor sano, SOS servido, 403 sin sesión, cuentas de socio aún no configuradas. Lector `receiving`, automático activo, 297 transacciones y último éxito 20:16:13, sin error. Evidencia privada: `private/sos-activation-evidence.json`.
+- Ingreso Manual SOS protegido por sesión real de socio. Datos de cliente, retiro/delivery, dirección, fecha/hora, productos/cantidades, pago y motivo. Sin cuentas ni contraseñas reales creadas por el agente.
+- Sin pago → borrador fuera de producción; socio autoriza con motivo → Agendado sin pago. Pago sigue falso, boleta pendiente y marcado/entrega intactos. Pago manual verificado exige referencia y se etiqueta como declaración del socio.
+- Vínculo solo a comanda observada por el lector y productos/cantidades coincidentes; al llegar venta saldada, mismo pedido/ítems y cambios locales preservados. Nota SOS y comentario fuente separados. Sin vínculo, coincidencias pasan a revisión; socio vincula o declara distintas, con auditoría. No se empareja por nombre automáticamente.
+- Reintentos y doble clic no duplican pedido ni autorización. Revalidación bajo bloqueo SQLite evita crear demanda duplicada si un SOS llega durante la importación. Pruebas aisladas no frenan ventas operativas.
+- API: sin sesión/rol falsificado/CSRF/borrador sin autorización rechazados. Historial de borradores también protegido. No se escribe Toteat, inventario ni se envían mensajes.
+- QA ficticio Chrome dedicado 1180/320: ingreso, autorización, pago sigue pendiente, reintento, recarga, logout, conciliación y pago posterior sobre mismo ID, notas conservadas. Cero excepciones JS/sin desborde. Capturas `qa/sos-1180-fake.png`, `qa/sos-320-fake.png`. Las pruebas UI no usaron la base real.
+- Pendiente del usuario: crear sus cuentas de socio con `scripts/create_partner.py`; el agente no inventa claves. El acceso global fuera de estas funciones sigue siendo de prototipo local.
+
+Las secciones siguientes son históricas y no reemplazan este estado vigente.
+
+## Avance anterior: lector preparado y planner mínimo
+
+- Handoff autorizado preparado en `scripts/connect_toteat.py`: helper nativo compilado y firmado, self-test sin red/llavero aprobado; usuario ingresa la credencial ocultamente en Terminal. No se observó Terminal ni se capturaron secretos. Guardado y primera lectura reales pendientes del resultado de ese ingreso.
+- Lector GET fijo de abiertas cada 30 segundos, sin concurrencia, espera creciente ante fallos y detención ante problemas de acceso. Bandeja privada independiente con IDs exactos, canal/proveedor y comentarios originales. Repetición idempotente; cambios con historial; sin inferir entrega al desaparecer del listado. No hay conversión automática a pedidos operativos ni cobertura confirmada de cerradas. UI distingue claramente **Agendamiento por validar**.
+- **Plan de tortas y bases**: tabla de cantidades por sabor/tamaño, bases agrupadas por tipo/unidad/diámetro explícitos y recetas faltantes visibles. Editor admite diámetro y unidad opcionales; recetas anteriores quedan por confirmar sin conversiones inventadas. Fracciones conservadas, marcado contado una vez, entregado/cancelado excluido. La necesidad neta de fabricar permanece desconocida; no descuenta stock.
+- **109 pruebas Python aprobadas**, pruebas Node de notificaciones y sintaxis correctas. UI sintética en navegador dedicado: cantidades 10/20, base ficticia de 18 cm explícita, receta faltante, edición a 20 cm y cantidad 0,25, persistencia tras recarga; bandeja sintética conserva canal/comentario. Escritorio 1180 y móvil 390/320 sin desborde, cero excepciones JS. Ninguna escritura de QA en la base operativa.
+- Capturas exclusivamente ficticias: [planner escritorio](../qa/planner-desktop-fake.png) y [planner móvil](../qa/planner-mobile-320-fake.png). No se presupone que 10 PP equivalgan a 18 cm en las recetas del usuario.
+- Demo activa: <http://127.0.0.1:8765>. Commits previos `4276c14` y `447def3` preservados; este avance posterior aún no está comprometido ni publicado.
 
 ## Entrega vigente: catálogo limpio, simulaciones y campana
 

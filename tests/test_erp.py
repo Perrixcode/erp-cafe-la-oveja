@@ -1,3 +1,4 @@
+from http_test_support import authenticated_opener
 """Pruebas de negocio y HTTP con bases temporales, sin Internet."""
 import copy
 import json
@@ -162,13 +163,14 @@ class HttpTests(unittest.TestCase):
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
         self.url = f"http://127.0.0.1:{self.server.server_address[1]}"
+        self.opener=authenticated_opener(self.server,Path(self.temp.name))
 
     def tearDown(self):
         self.server.shutdown(); self.server.server_close(); self.thread.join(); self.temp.cleanup()
 
     def request(self, path, data=None, headers=None):
         req = Request(self.url+path, data=json.dumps(data).encode() if data else None, headers=headers or {})
-        return urlopen(req, timeout=5)
+        return self.opener.open(req, timeout=5)
 
     def test_create_and_duplicate_over_http(self):
         headers={"Content-Type":"application/json","X-ERP-Local":"1"}
@@ -190,7 +192,7 @@ class HttpTests(unittest.TestCase):
         with self.request('/') as response:
             self.assertIn(b'Tortas y dulces enteros',response.read())
             self.assertIn("frame-ancestors 'none'",response.headers['Content-Security-Policy'])
-        with self.request('/api/health') as response: self.assertFalse(json.load(response)['toteat_connected'])
+        with self.request('/api/health') as response: self.assertTrue(json.load(response)['authentication_required'])
         for path,code in [('/api/board?date=no',400),('/../app.py',404)]:
             with self.assertRaises(HTTPError) as error: self.request(path)
             self.assertEqual(error.exception.code,code)

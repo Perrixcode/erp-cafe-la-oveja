@@ -1,0 +1,26 @@
+[Unit]
+Description=ERP Oveja web
+After=network.target
+
+[Service]
+User=oveja-erp
+Group=oveja-erp
+WorkingDirectory=/opt/oveja-erp/app
+EnvironmentFile=/etc/oveja-erp/web.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/oveja-erp/venv/bin/gunicorn --config deploy/gunicorn.conf.py erp.wsgi:from_environment()
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/oveja-erp
+InaccessiblePaths=/etc/cafeteria /var/lib/cafeteria
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=450M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target

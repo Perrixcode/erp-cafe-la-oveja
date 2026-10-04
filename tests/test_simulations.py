@@ -1,3 +1,4 @@
+from http_test_support import authenticated_opener
 import json
 import tempfile
 import threading
@@ -25,12 +26,13 @@ class SimulationTests(unittest.TestCase):
         self.thread=threading.Thread(target=self.server.serve_forever,daemon=True);self.thread.start()
         self.addCleanup(self.close)
         self.url='http://127.0.0.1:'+str(self.server.server_address[1])
+        self.opener=authenticated_opener(self.server,self.path.parent)
 
     def close(self):self.server.shutdown();self.server.server_close();self.thread.join()
 
     def api(self,path,body=None):
         request=Request(self.url+path,data=None if body is None else json.dumps(body).encode(),headers={} if body is None else {'X-ERP-Local':'1','Content-Type':'application/json'},method='GET' if body is None else 'POST')
-        with urlopen(request,timeout=3) as response:return json.load(response)
+        with self.opener.open(request,timeout=3) as response:return json.load(response)
 
     def order(self):
         data=sample();p=self.product

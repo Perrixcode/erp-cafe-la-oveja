@@ -1,0 +1,18 @@
+[Unit]
+Description=Ovejita transfer read projection for ERP
+
+[Service]
+Type=oneshot
+User=cafeteria
+Group=oveja-erp
+WorkingDirectory=/opt/oveja-erp/app
+ExecStart=/usr/bin/python3 scripts/export_bot_transfers.py --database /var/lib/cafeteria/whatsapp.sqlite3 --names-config /etc/cafeteria/panel_privado.json --destination /var/lib/oveja-erp-import/transferencias.json
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/lib/cafeteria /etc/cafeteria
+ReadWritePaths=/var/lib/oveja-erp-import
+PrivateNetwork=true
+MemoryMax=200M

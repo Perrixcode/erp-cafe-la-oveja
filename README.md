@@ -1,8 +1,8 @@
 # ERP Café La Oveja
 
-Prototipo local de **tortas y dulces enteros**: encargos pagados, marcado, coordinación, bases de producción y reserva para vitrina. Python estándar, SQLite y HTML/CSS/JavaScript responsive, sin dependencias de ejecución.
+ERP modular para Oveja Cocina y Café. El primer flujo operativo gestiona **tortas y dulces enteros**, recepción desde Toteat, agendamiento, marcado y entrega. Incluye Inicio y consulta de transferencias del bot Ovejita. Python, SQLite y HTML/CSS/JavaScript nativo; Gunicorn y Caddy para producción.
 
-**Los pedidos, pagos y conteos son ficticios. La distribución pública incluye solo un catálogo demo; una instalación local puede incorporar un catálogo privado de forma manual. No sincroniza Toteat, no ajusta inventario externo, no envía WhatsApp ni emite boletas. Los perfiles son una demostración visual, sin autenticación real.**
+**La distribución pública incluye solo datos ficticios. La instalación privada puede leer Toteat: comandas abiertas → Lectura de Toteat; ventas cerradas y saldadas con comentario válido → Agendadas. No escribe pedidos, pagos ni stock en Toteat. La boleta PDF se adjunta cuando llega; no es requisito para agendar. Todo acceso a datos requiere una cuenta autenticada. Los perfiles Socio, Producción y Caja se validan en el servidor; los cambios nuevos registran el usuario real. La demo local usa localhost; la instalación en servidor usa HTTPS y servicios aislados.**
 
 ## Ejecutar la demo
 
@@ -16,7 +16,9 @@ Para dejar el servidor local separado de la terminal, sin instalar un servicio:
 python3 scripts/start_local.py
 ```
 
-La conexión automática desde Toteat sigue pendiente. Este botón permite probar solamente el flujo local.
+El lector consulta abiertas cada 30 segundos y ventas del turno verificado cada 90 segundos. Lectura muestra solo las pendientes; al agendar se conserva una única identidad con comentario original, pago y boleta. No se interpreta la desaparición de una comanda como pago. Los casos sin nombre, fecha u hora válidos requieren revisión; el teléfono ausente se señala. Ver [estado y límites de la conexión](docs/TOTEAT_READONLY.md#estado-vigente).
+
+Las tarjetas muestran **fecha y hora** en cualquier período. Las pruebas del rango tienen un acceso directo desde Operación a Simulaciones y siguen excluidas de métricas reales. La vista y el período se conservan en la URL al recargar.
 
 Python 3.11+ y zona `America/Santiago` disponible:
 
@@ -32,6 +34,38 @@ python3 app.py --empty --db data/vacia-demo.sqlite3
 ```
 
 Los ejemplos se cargan una sola vez y conservan su fecha. Selecciona esa fecha o pulsa «Ver día de los ejemplos» cuando corresponda. SQLite guarda pedidos, versiones, historial, conteos y recetas; está excluido de Git. El servidor escucha exclusivamente en `127.0.0.1`; un teléfono externo no puede acceder todavía. No exponer este servidor de desarrollo a Internet.
+
+## Acceso, módulos y recuperación
+
+Crear nuevas cuentas personales desde Terminal, sin contraseñas en argumentos:
+
+```sh
+python3 scripts/create_user.py --role partner
+python3 scripts/create_user.py --role production
+python3 scripts/create_user.py --role cashier
+```
+
+No se incluyen cuentas iniciales ni claves predeterminadas. `create_partner.py` continúa disponible para socios. Cerrar sesión limpia los datos de la pantalla y revoca el token; reiniciar el servidor invalida las sesiones. La API devuelve 401 sin sesión y 403 cuando el perfil no permite la operación. La página de acceso, sus recursos y un estado mínimo de salud son públicos, sin información comercial.
+
+| Perfil | Operaciones habilitadas |
+| --- | --- |
+| Socio | Consulta, boletas, marcado, entrega, correcciones, inventario local, recetas, simulaciones, edición de cliente, toma manual y revisión de recepción |
+| Producción | Consulta de pedidos/plan, solicitud de marcado y edición de bases |
+| Caja | Consulta de pedidos, acceso a boletas y registro de entrega de ítems ya marcados |
+
+**Inicio**, **Pedidos de tortas** y **Transferencias del local** tienen funciones operativas. **Gestión de personas**, **Documentos y procedimientos**, **Gestión de proveedores**, Despacho y reparto, Planificación de turnos, Control de asistencia, Inventario y abastecimiento, Producción, Catálogo y proveedores, Analítica y reportes, Costos y rentabilidad, Gestión de clientes y Activos y mantenimiento contienen estructura para desarrollo posterior. Proveedores contempla preparación semanal de facturas como mensaje para copiar a WhatsApp. Sin GPS, GeoVictoria, Power BI ni envío de mensajes habilitado.
+
+El panel de atención de tortas muestra próximos 7 días, pedidos de fechas anteriores pendientes de entrega, pendientes de marcado, agendados sin pago y contacto/dirección incompletos. Un pedido puede participar en varias prioridades. No afirma que un pedido vencido siga físicamente en el local ni que falte fabricar una torta. Operación, simulaciones y retiradas permanecen separadas. Las tarjetas incluyen día de semana, fecha y hora.
+
+El servidor local crea un respaldo al arrancar y cada 24 h mientras siga activo, con reintento cada 30 min si falla. Incluye SQLite, historial, cuentas (hashes de contraseña), bandeja de recepción y PDF adjuntos; queda privado en `private/backups/`. La copia usa SQLite online backup, verificación de integridad y SHA-256 de archivos. No incluye credenciales de Toteat, llavero, binarios ni configuración de conexión. **Es una copia en el mismo equipo: falta una copia externa cifrada al preparar el hosting.** No hay borrado automático de respaldos.
+
+```sh
+python3 scripts/backup_local.py
+python3 scripts/backup_local.py --verify private/backups/NOMBRE_DEL_RESPALDO
+python3 scripts/backup_local.py --restore private/backups/NOMBRE_DEL_RESPALDO --destination private/recuperacion-nueva
+```
+
+La recuperación exige una carpeta nueva y nunca reemplaza una instalación ni activa el lector. La verificación compara SQLite y todos los PDF referenciados antes de dar una copia por terminada. Los respaldos contienen datos privados y hashes de cuentas; no deben publicarse. [Preparación del servidor](docs/PREPARACION_SERVIDOR.md).
 
 ## Flujo de marcado
 
@@ -71,7 +105,27 @@ El tipo pertenece al pedido: se mantiene el mismo producto y no se duplica inven
 
 El filtro de entrega cambia las tarjetas visibles; los indicadores, resumen y texto para copiar siguen abarcando todo el período. Las entregas inmediatas no participan en la métrica de puntualidad de las programadas. Corregir el tipo no cambia estados automáticamente; una reclasificación a inmediata requiere ítems ya entregados. Las correcciones y reversiones conservan auditoría.
 
-No se interpretan todavía comentarios de Toteat. Un futuro lector deberá conservar el texto original, validar los campos del agendamiento y mandar los casos ambiguos a revisión. Los pedidos no pagados requieren un flujo de autorización explícito todavía pendiente; la demo los rechaza.
+El lector de ventas cerradas interpreta el comentario siguiendo el afiche de cajeras y conserva el texto original. No infiere entrega inmediata por falta de comentario. Una venta inmediata sigue siendo entrega confirmada en el flujo manual; su clasificación automática por API aún requiere evidencia explícita.
+
+El automático exige cierre y saldo cero con pago registrado, o cierre totalmente saldado con descuento autorizado en Toteat según la regla de los dueños. Un descuento no se etiqueta como dinero recibido. Boleta, marcado y entrega son estados independientes. Manual SOS y agendamiento sin pago están disponibles solo para cuentas de socios autenticadas. [Reglas vigentes](docs/AGENDAMIENTO_Y_SOS.md).
+
+## Edición de cliente y entrega por socios
+
+Un socio autenticado puede corregir nombre, teléfono, retiro/delivery, dirección, fecha y hora desde el ticket. Delivery exige dirección. La modificación conserva productos, pago, boleta y comentario fuente; registra cuenta de socio, motivo y valores anteriores/nuevos. La versión evita sobrescribir un cambio simultáneo. Una sincronización repetida de Toteat no borra estas correcciones. Los resúmenes y avisos usan la nueva fecha. Pedidos entregados o cancelados completos no se editan por esta vía.
+
+Crear cada cuenta desde Terminal, en este equipo (no se incluyen cuentas ni claves iniciales):
+
+```sh
+python3 scripts/create_partner.py
+```
+
+La contraseña se escribe oculta, mínimo 12 caracteres. Solo se guarda un hash scrypt con sal aleatoria en `private/partner-auth.sqlite3`. La pantalla **ERP Oveja · Cocina y Café** inicia una sesión HttpOnly/SameSite de ocho horas; cerrar sesión o reiniciar el servidor la invalida. Cinco intentos fallidos bloquean temporalmente el acceso. No hay alta de socios vía HTTP. La protección cubre todas las consultas y operaciones del ERP, incluidas boletas, comentarios, historial y URLs directas. Sin cuentas no existe acceso abierto. Las cuentas de socios anteriores conservan sus hashes de contraseña al incorporar perfiles. Los registros históricos mantienen su responsable original.
+
+## Contingencias SOS
+
+**Iniciar sesión como socio → Contingencias SOS → Nuevo pedido SOS.** Un ingreso sin pago se guarda fuera de producción hasta que un socio autorice **Agendar sin pago** con motivo. La autorización no confirma dinero, boleta, marcado ni entrega. Un pago verificado manualmente exige referencia y se etiqueta como declaración del socio.
+
+Una comanda recibida puede vincularse con identidad y cantidades verificadas; su llegada posterior conserva el mismo pedido y los datos locales. Las coincidencias ambiguas se revisan antes de agregar demanda. Auditoría, idempotencia, control de versión y protección ante llegadas simultáneas evitan duplicaciones por reintento. [Flujo, conciliación y límites](docs/AGENDAMIENTO_Y_SOS.md).
 
 ## Catálogo, bases y perfiles demo
 
@@ -81,9 +135,11 @@ Los bizcochos tienen formatos de 10 y 20 personas. Hojarasca, mixta y zanahoria 
 
 Valores iniciales editables indicados para 20 personas: Amor hojarasca, 10 hojarascas (provisional); Hoja manjar, 14; Mixta, 0,5 bizcocho chocolate + 6 hojarascas. Chocolate de bizcocho tiene 1 base del tamaño correspondiente. Los sabores de base no confirmados muestran «Receta/cantidad pendiente». Rellenos pendientes.
 
-El usuario elige el escenario **Todas las encargadas** para calcular bases. Es una referencia de planificación; no calcula automáticamente lo que falta elaborar porque no hay registro de bases ya hechas. Los decimales se suman exactamente y los tamaños no se mezclan: 3 mixtas → 1,5 bizcochos de 20 personas + 18 hojarascas. No se redondea a 2 automáticamente.
+El usuario elige **Todas las encargadas** en **Plan de tortas y bases**. Primero ve cantidades por sabor y tamaño, incluidas las tortas con receta por definir; después, las bases calculables. Es demanda bruta de los encargos pendientes de entrega: incluye los marcados una sola vez, excluye entregados/cancelados y no afirma cuánto falta fabricar. Stock y bases ya elaboradas no se descuentan.
 
-La vista Esteban muestra el acceso completo; la vista Jefa de producción permite consultar y solicitar marcado/configurar bases. Son controles de UI para probar el flujo, **no permisos de seguridad**. Autenticación y autorización en servidor quedan pendientes.
+Cada componente de receta admite una unidad explícita (bizcocho entero, disco, hojarasca o unidad) y diámetro en centímetros, ambos opcionales. No se convierten personas en centímetros ni bizcochos en discos. Solo se agrupan formatos confirmados compatibles; los antiguos o incompletos conservan por separado su tamaño comercial y muestran «por confirmar». Las recetas desconocidas no aportan bases inventadas. Se conservan fracciones exactas, sin redondeo automático.
+
+Se retiraron el selector de perfil y el responsable escrito a mano. Los permisos corresponden a la cuenta autenticada: socios administran, producción consulta/solicita marcado/edita bases y caja consulta/ve boletas/registra entregas. La confirmación de marcado, cancelaciones, reversiones, cambios de cliente y SOS quedan en socios. Consultar un borrador SOS también requiere socio.
 
 ## Stock y reserva para vitrina
 
@@ -99,11 +155,11 @@ Los encargos no se restan nuevamente. Si el físico es desconocido, el disponibl
 
 Pedidos y unidades se presentan separados. El número de pedidos incluye finalizados/cancelados; unidades excluye canceladas e incluye entregadas. Se desglosa por canal y por producto/formato en el resumen. Solicitud→marcado muestra promedio de confirmaciones registradas sobre pedidos del rango. A tiempo usa ítems actualmente entregados con evento de entrega y compara su timestamp con retiro programado; no es porcentaje de ventas. Sin eventos muestra «Sin datos». Todo son métricas de demostración, sin ingresos ni márgenes inventados.
 
-El modelo conserva una referencia de boleta en estado pendiente. No se muestra un enlace fabricado. Falta verificar si FiscalDocuments devuelve metadatos, PDF u otra referencia, y autorizar cualquier configuración requerida; no se activa aquí.
+El ticket permite ver y descargar la boleta PDF cuando el detalle de la orden entrega un enlace vinculado al mismo pago e importes de la venta. El PDF validado se guarda privado y se sirve desde localhost; nunca se publica el enlace original ni se envía al cliente automáticamente. La falta de boleta no bloquea un cierre saldado con descuento.
 
 ## Diagnóstico manual de Toteat
 
-La demo continúa aislada. Existe una herramienta **separada**, que debe iniciar y confirmar el usuario:
+Herramienta histórica separada para instalaciones nuevas; la conexión privada ya instalada no necesita repetir el ingreso de credenciales:
 
 ```sh
 python3 scripts/toteat_diagnostic.py
@@ -170,10 +226,10 @@ Node solo comprueba sintaxis; no se necesita para ejecutar. Las pruebas HTTP usa
 
 ## Portafolio y siguientes pasos
 
-Desarrollo asistido por IA, con revisión y aprendizaje incremental del autor. Prototipo experimental, sin afirmaciones de experiencia/integración de producción. No se incluyen clientes, credenciales, bases de datos ni catálogo comercial real. Sin licencia elegida todavía.
+Proyecto personal de Esteban Iturra, desarrollado con asistencia técnica, revisión y aprendizaje incremental. No se incluyen clientes, credenciales, bases de datos ni catálogo comercial real. Sin licencia elegida todavía.
 
 Identidad negro/blanco inspirada en [Café La Oveja](https://cafelaoveja.cl); crema, oliva y caramelo son interpretación del ERP. Tipografía del sistema; sin fotos ni archivos del logo oficial.
 
-Pendientes: lectura y mapeo verificados de comandas/ventas, interpretación validada de comentarios y excepciones de pago; boletas verificadas; alcance de bases faltantes; notificaciones WhatsApp a Esteban (recordadas, aún sin despacho); autenticación/roles reales, respaldos y servidor de producción. Hosting y GitHub son etapas separadas; no se despliega aquí.
+Estado actual: recepción con agendamiento automático o autorización de socio; datos incompletos en revisión; venta inmediata separada; alertas de anulación con historial; boletas; acceso integral; Inicio; lectura de transferencias; fotos nuevas del bot con vista previa y descarga. [Arquitectura y tecnologías](docs/ARQUITECTURA.md), [despliegue](docs/PREPARACION_SERVIDOR.md).
 
 Guías: [aprendizaje](LEARNING.md), [operación](docs/OPERACION.md), [Toteat](docs/TOTEAT_READONLY.md).
