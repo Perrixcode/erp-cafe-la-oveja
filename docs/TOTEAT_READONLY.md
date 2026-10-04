@@ -16,7 +16,10 @@ Destino fijo HTTPS: `api.toteat.com/mw/or/1.0/`. La autenticación mostrada usa 
 | --- | --- |
 | `products` | `activeProducts=true` |
 | `sales` | `ini`, `end`: AAAAMMDD, máximo un día de diferencia en esta prueba |
-| `orderstatus` | `det=false`, `oic`: ID externo existente |
+| `orderstatus` individual | `det=false` o `true`, `ic`: identificador de orden existente |
+| `orderstatus` abiertas | `listing=true`, `det=true` |
+
+La documentación pública distingue la consulta individual con `ic` del listado de abiertas con `listing`. El script `scripts/toteat_open_orders_probe.py` prepara una única lectura del segundo modo con esquema y evidencia de comentarios sanitizados. No se ha verificado aún su respuesta en esta cuenta; no es una conexión permanente. Fuente: [documentación oficial](https://developers.toteat.com/paths/orderstatus.yaml).
 
 No se presupone que `end` sea inclusivo, ni se inventan headers ni estructuras de respuesta. La existencia de estas opciones no demuestra que la cuenta tenga permisos activos.
 

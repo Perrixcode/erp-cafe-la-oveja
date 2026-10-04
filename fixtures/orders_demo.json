@@ -23,7 +23,9 @@
           "kind": "torta",
           "comments": "Sin vela"
         }
-      ]
+      ],
+      "delivery_timing": "scheduled",
+      "customer_phone": "000000000"
     },
     {
       "source": "demo",
@@ -47,7 +49,9 @@
           "kind": "torta",
           "comments": "Uno con mensaje de cumpleaños"
         }
-      ]
+      ],
+      "delivery_timing": "scheduled",
+      "customer_phone": "000000000"
     },
     {
       "source": "demo",
@@ -79,7 +83,9 @@
           "kind": "torta",
           "comments": "Torta entera ficticia"
         }
-      ]
+      ],
+      "delivery_timing": "scheduled",
+      "customer_phone": "000000000"
     },
     {
       "source": "demo-toteat",
@@ -103,7 +109,9 @@
           "kind": "torta",
           "comments": "Torta física asignada en el ejemplo"
         }
-      ]
+      ],
+      "delivery_timing": "scheduled",
+      "customer_phone": "000000000"
     },
     {
       "source": "demo",
@@ -126,7 +134,9 @@
           "kind": "torta",
           "comments": ""
         }
-      ]
+      ],
+      "delivery_timing": "scheduled",
+      "customer_phone": "000000000"
     },
     {
       "source": "demo",
@@ -150,7 +160,9 @@
           "kind": "torta",
           "comments": ""
         }
-      ]
+      ],
+      "delivery_timing": "scheduled",
+      "customer_phone": "000000000"
     }
   ]
 }

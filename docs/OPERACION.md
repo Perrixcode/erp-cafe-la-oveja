@@ -25,3 +25,11 @@ Supuestos de diseño para revisar con el usuario: horario de retiro `America/San
 - Bizcocho: 10/20 personas. Hojarasca, mixta y zanahoria: solo 20. No imponer esos tamaños a otros dulces enteros.
 - Bases iniciales para 20: Amor hojarasca 10 (provisional editable), Hoja manjar 14, Mixta 0,5 bizcocho chocolate + 6 hojarascas. Rellenos y recetas no confirmadas quedan pendientes.
 - Plan actual como escenario de todas las encargadas; falta decidir/registrar qué queda realmente por elaborar. No se deduce de «sin marcar».
+
+## Entrega y catálogo local
+
+En un pedido demo nuevo, elegir explícitamente entrega programada o inmediata. Programada exige teléfono ficticio, fecha/hora y pago simulado; inicia pendiente de marcado. Inmediata confirma entrega al guardar la venta simulada. El producto conserva la misma identidad; no se crean categorías o conteos duplicados. Pedidos anteriores sin tipo aparecen por confirmar, conservando estados e historial.
+
+El panel Catálogo local distingue los productos incorporados manualmente de los ejemplos. Permite consultar formato, identidad de origen y disponibilidad desconocida cuando no existe conteo. La incorporación no representa conexión ni sincronización con Toteat.
+
+Los comentarios originales se conservan como texto: el reconocimiento automático de agendamientos y la autorización de no pagados todavía están pendientes. No ingresar clientes ni teléfonos reales en esta demo de pedidos.

@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "source": "manual-demo",
+  "source_reference": "Catálogo inventado exclusivamente para probar el importador local.",
+  "products": [
+    {
+      "id": "DEMO-IMP-001",
+      "idToteat": 9001,
+      "localCode": "DEMO-CODE-001",
+      "name": "Torta prueba cacao pequeña",
+      "categoryId": "DEMO-CAT-T",
+      "category": "TORTAS DE PRUEBA",
+      "catalog_group": "Tortas enteras",
+      "product_type": "bizcocho",
+      "size_people": 10,
+      "modifier_options": 0,
+      "bases": null,
+      "recipe_status": "pending",
+      "recipe_note": "Receta pendiente; no inferir bases ni rellenos."
+    },
+    {
+      "id": "DEMO-IMP-002",
+      "idToteat": 9002,
+      "localCode": "DEMO-CODE-002",
+      "name": "Torta prueba cacao grande",
+      "categoryId": "DEMO-CAT-T",
+      "category": "TORTAS DE PRUEBA",
+      "catalog_group": "Tortas enteras",
+      "product_type": "bizcocho",
+      "size_people": 20,
+      "modifier_options": 0,
+      "bases": null,
+      "recipe_status": "pending",
+      "recipe_note": "Receta pendiente; no inferir bases ni rellenos."
+    },
+    {
+      "id": "DEMO-IMP-003",
+      "idToteat": 9003,
+      "localCode": "DEMO-CODE-003",
+      "name": "Torta prueba combinada",
+      "categoryId": "DEMO-CAT-T",
+      "category": "TORTAS DE PRUEBA",
+      "catalog_group": "Tortas enteras",
+      "product_type": "mixta",
+      "size_people": 20,
+      "modifier_options": 0,
+      "bases": [
+        {
+          "name": "Bizcocho prueba",
+          "quantity": "0.5"
+        },
+        {
+          "name": "Hojas prueba",
+          "quantity": "6"
+        }
+      ],
+      "recipe_status": "confirmed",
+      "recipe_note": "Receta ficticia de prueba."
+    },
+    {
+      "id": "DEMO-IMP-004",
+      "idToteat": 9004,
+      "localCode": "DEMO-CODE-004",
+      "name": "Pie prueba entero",
+      "categoryId": "DEMO-CAT-D",
+      "category": "DULCES DE PRUEBA",
+      "catalog_group": "Dulces enteros",
+      "product_type": "pie",
+      "size_people": null,
+      "modifier_options": 0,
+      "bases": null,
+      "recipe_status": "pending",
+      "recipe_note": "Receta pendiente; no inferir bases ni rellenos."
+    }
+  ]
+}

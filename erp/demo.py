@@ -7,6 +7,8 @@ from erp.domain import DomainError, NEXT_STATUS
 
 
 def seed_demo(store, today):
+    if store.operating_mode() == 'toteat-local':
+        return
     with store.connect() as db:
         if db.execute("SELECT value FROM metadata WHERE key='demo_seed_date'").fetchone():
             return

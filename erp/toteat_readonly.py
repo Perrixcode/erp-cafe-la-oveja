@@ -14,8 +14,8 @@ def request_plan(endpoint, external_id=None):
     params = {}
     if endpoint == "orderstatus":
         if not external_id or not isinstance(external_id, str):
-            raise ValueError("orderstatus requiere un identificador externo oic.")
-        params = {"det": "false", "oic": external_id}
+            raise ValueError("orderstatus requiere un identificador de orden ic.")
+        params = {"det": "false", "ic": external_id}
     return {
         "mode": "PLAN_ONLY_NO_NETWORK",
         "method": "GET",
@@ -41,9 +41,9 @@ def load_internal_example():
 def main():
     parser = argparse.ArgumentParser(description="Plan de lectura Toteat. Nunca realiza solicitudes.")
     parser.add_argument("--endpoint", choices=sorted(ENDPOINTS), default="orderstatus")
-    parser.add_argument("--oic", default="DEMO-EXTERNO-001")
+    parser.add_argument("--ic", default="DEMO-EXTERNO-001")
     args = parser.parse_args()
-    print(json.dumps(request_plan(args.endpoint, args.oic), indent=2, ensure_ascii=False))
+    print(json.dumps(request_plan(args.endpoint, args.ic), indent=2, ensure_ascii=False))
 
 
 if __name__ == "__main__":

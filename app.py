@@ -76,24 +76,31 @@ def handler_for(store):
             path = parsed.path
             if self.command == "GET":
                 if path == "/api/health":
-                    return self.send(200, {"ok": True, "demo": True, "toteat_connected": False})
+                    return self.send(200, {"ok": True, "demo": True, "orders_demo": store.operating_mode() == "demo", "operating_mode": store.operating_mode(), "catalog_mode": "local", "toteat_connected": False})
                 if path == "/api/board":
                     query = parse_qs(parsed.query)
                     selected = query.get("date", [today().isoformat()])[0]
                     period = query.get("period", ["day"])[0]
                     start, end = date_range(selected, period, query.get("end", [None])[0])
-                    orders = store.list(start, end)
-                    stock = stock_summary(store.stock())
+                    scope = query.get('scope',['operations'])[0]
+                    if scope not in {'operations','tests','archived'}:
+                        raise DomainError('Vista de registros no válida.')
+                    orders = store.list(start, end, include_archived=scope == 'archived')
+                    if store.operating_mode() == 'toteat-local' or scope != 'operations':
+                        orders = [o for o in orders if (not o['is_simulation'] if scope == 'operations' else o['is_simulation'] and o['simulation_archived'] == (scope == 'archived'))]
+                    stock = stock_summary([] if scope != 'operations' else store.stock())
                     catalog = store.catalog()
                     with store.connect() as db:
                         seed = db.execute("SELECT value FROM metadata WHERE key='demo_seed_date'").fetchone()
-                    return self.send(200, {"orders": orders, "summary": summarize(orders), "stock": stock, "catalog": catalog, "production": production_plan(orders,catalog), "notifications": store.notifications(), "analytics": store.analytics(orders), "whatsapp": whatsapp(orders, start, end, stock), "start": start, "end": end, "today": today().isoformat(), "seed_date": seed[0] if seed else None, "timezone": BUSINESS_TIMEZONE, "statuses": STATUSES})
+                    return self.send(200, {"operating_mode":store.operating_mode(), "scope":scope, "notification_scope":store.notification_scope(), "orders": orders, "summary": summarize(orders), "stock": stock, "catalog": catalog, "production": production_plan(orders,catalog), "notifications": store.notifications(), "analytics": store.analytics(orders), "whatsapp": whatsapp(orders, start, end, stock), "start": start, "end": end, "today": today().isoformat(), "seed_date": seed[0] if seed else None, "timezone": BUSINESS_TIMEZONE, "statuses": STATUSES})
+                if path == "/api/notifications":
+                    return self.send(200, {"notifications":store.notifications(), "scope":store.notification_scope()})
                 if path == "/api/stock":
                     return self.send(200, {"stock": stock_summary(store.stock()), "history": store.stock_history()})
                 match = re.fullmatch(r"/api/orders/(\d+)/history", path)
                 if match:
                     return self.send(200, store.history(int(match[1])))
-                assets = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/styles.css": ("styles.css", "text/css")}
+                assets = {"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/notifications.js": ("notifications.js", "text/javascript"), "/styles.css": ("styles.css", "text/css")}
                 if path in assets:
                     name, kind = assets[path]
                     return self.send(200, (ROOT / "static" / name).read_bytes(), kind + "; charset=utf-8")
@@ -103,6 +110,11 @@ def handler_for(store):
                     return self.send(200, store.update_stock(data.get("stock"), data.get("actor"), data.get("reason"), data.get("version")))
                 if path == "/api/recipes" and self.command == "PUT":
                     return self.send(200, store.update_recipe(data.get("sku"),data.get("bases"),data.get("actor"),data.get("reason"),data.get("version")))
+                if path == "/api/simulations" and self.command == "POST":
+                    return self.send(201,store.create(data.get('order'),data.get('actor'),simulation=True))
+                simulation = re.fullmatch(r'/api/simulations/(\d+)/(archive|restore)',path)
+                if simulation and self.command == 'POST':
+                    return self.send(200,store.archive_simulation(int(simulation[1]),data.get('actor'),data.get('version'),archived=simulation[2]=='archive'))
                 if path == "/api/orders" and self.command == "POST":
                     return self.send(201, store.create(data.get("order"), data.get("actor")))
                 match = re.fullmatch(r"/api/orders/(\d+)", path)

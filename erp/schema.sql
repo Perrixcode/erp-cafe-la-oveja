@@ -71,3 +71,31 @@ CREATE TABLE IF NOT EXISTS recipe_history (
     id INTEGER PRIMARY KEY, sku TEXT NOT NULL, actor TEXT NOT NULL, reason TEXT NOT NULL,
     occurred_at TEXT NOT NULL, before_json TEXT, after_json TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS catalog_products (
+    sku TEXT PRIMARY KEY,
+    source TEXT NOT NULL CHECK(source IN ('toteat-manual','manual-demo')),
+    source_id TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    imported_at TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    UNIQUE(source,source_id)
+);
+CREATE TABLE IF NOT EXISTS catalog_imports (
+    digest TEXT PRIMARY KEY,
+    source TEXT NOT NULL,
+    source_reference TEXT NOT NULL,
+    imported_at TEXT NOT NULL,
+    actor TEXT NOT NULL,
+    added INTEGER NOT NULL,
+    unchanged INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS order_scheduling (
+    order_id INTEGER PRIMARY KEY REFERENCES orders(id),
+    timing TEXT NOT NULL CHECK(timing IN ('scheduled','immediate','unclassified')),
+    customer_phone TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS simulation_orders (
+    order_id INTEGER PRIMARY KEY REFERENCES orders(id),
+    created_at TEXT NOT NULL,
+    archived_at TEXT
+);

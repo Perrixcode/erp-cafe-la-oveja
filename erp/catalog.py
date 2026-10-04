@@ -5,7 +5,7 @@ from erp.domain import DomainError, OUTSTANDING, flatten
 
 def product(sku, flavor, size, category, bases=None):
     return dict(sku='DEMO-'+sku, flavor=flavor, size=size, category=category,
-                kind='torta', whole=True, bases=bases, version=0,
+                kind='torta', whole=True, bases=bases, version=0, source='demo', is_demo=True,
                 catalog_group='Dulces enteros' if category in {'cheesecake','pie','kuchen'} else 'Tortas enteras')
 
 
@@ -25,10 +25,10 @@ CATALOG = [
 ]
 
 
-def validate_product(item):
-    found = next((p for p in CATALOG if p['sku'] == item['sku']), None)
+def validate_product(item, catalog=CATALOG):
+    found = next((p for p in catalog if p['sku'] == item['sku']), None)
     if not found or not found['whole']:
-        raise DomainError('Selecciona un producto entero del catálogo demo. Un SKU desconocido necesita clasificación manual.')
+        raise DomainError('Selecciona un producto entero del catálogo local. Un SKU desconocido necesita clasificación manual.')
     if (item['flavor'], item['size']) != (found['flavor'], found['size']):
         raise DomainError('El sabor y tamaño deben coincidir con el producto entero seleccionado.')
 

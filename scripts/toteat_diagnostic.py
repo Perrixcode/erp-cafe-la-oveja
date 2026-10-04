@@ -59,13 +59,18 @@ def validate(endpoint, parameters, identifiers):
         raise DiagnosticError('Solo products, sales y orderstatus están permitidos.')
     if set(identifiers) != {'xir','xil','xiu'} or any(not re.fullmatch(r'[A-Za-z0-9_-]{1,80}',v) for v in identifiers.values()):
         raise DiagnosticError('Identificadores no válidos.')
-    expected = {'products':{'activeProducts'},'sales':{'ini','end'},'orderstatus':{'det','oic'}}[endpoint]
-    if set(parameters) != expected:
+    expected = {'products':[{'activeProducts'}],'sales':[{'ini','end'}],'orderstatus':[{'det','ic'},{'det','listing'}]}[endpoint]
+    if set(parameters) not in expected:
         raise DiagnosticError('Parámetros no permitidos.')
     if endpoint == 'products' and parameters['activeProducts'] != 'true':
         raise DiagnosticError('Este diagnóstico consulta solo productos activos.')
-    if endpoint == 'orderstatus' and (parameters['det'] != 'false' or not re.fullmatch(r'[A-Za-z0-9_-]{1,80}',parameters['oic'])):
-        raise DiagnosticError('Usa un identificador de pedido existente válido.')
+    if endpoint == 'orderstatus':
+        if parameters['det'] not in {'false','true'}:
+            raise DiagnosticError('Detalle de orden no válido.')
+        if 'listing' in parameters and parameters['listing'] != 'true':
+            raise DiagnosticError('El listado permitido es listing=true.')
+        if 'ic' in parameters and not re.fullmatch(r'[A-Za-z0-9_-]{1,80}',parameters['ic']):
+            raise DiagnosticError('Usa un identificador de orden existente válido (ic).')
     if endpoint == 'sales':
         try:
             start,end = [datetime.strptime(parameters[k],'%Y%m%d') for k in ('ini','end')]
@@ -180,7 +185,7 @@ def main():
     elif endpoint == 'sales':
         print('Semántica inclusiva/exclusiva de fin aún no verificada. No se asumirá cobertura completa.')
         parameters={'ini':input('Inicio AAAAMMDD: ').strip(),'end':input('Fin AAAAMMDD: ').strip()}
-    else: parameters={'det':'false','oic':input('ID externo de un pedido existente: ').strip()}
+    else: parameters={'det':'false','ic':input('ID de una orden existente (ic): ').strip()}
     identifiers={key:input(f'{label} ({key}): ').strip() for key,label in [('xir','Restaurante'),('xil','Local'),('xiu','Usuario API')]}
     validate(endpoint,parameters,identifiers)
     with warnings.catch_warnings():

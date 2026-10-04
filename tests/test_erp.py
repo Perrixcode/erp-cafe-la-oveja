@@ -148,7 +148,7 @@ class BusinessTests(unittest.TestCase):
         with self.assertRaises(DomainError): date_range("not-a-date","day")
 
     def test_toteat_no_network_or_invented_mapping(self):
-        self.assertIn("det=false&oic=DEMO-1", request_plan("orderstatus","DEMO-1")["url"])
+        self.assertIn("det=false&ic=DEMO-1", request_plan("orderstatus","DEMO-1")["url"])
         self.assertFalse(request_plan("products")["executable"])
         with self.assertRaises(RuntimeError): read_remote()
         with self.assertRaises(NotImplementedError): map_real_response({})

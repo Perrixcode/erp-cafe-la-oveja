@@ -2,9 +2,21 @@
 
 Prototipo local de **tortas y dulces enteros**: encargos pagados, marcado, coordinación, bases de producción y reserva para vitrina. Python estándar, SQLite y HTML/CSS/JavaScript responsive, sin dependencias de ejecución.
 
-**La aplicación usa exclusivamente datos ficticios. No sincroniza Toteat, no ajusta inventario externo, no envía WhatsApp ni emite boletas. Los perfiles son una demostración visual, sin autenticación real.**
+**Los pedidos, pagos y conteos son ficticios. La distribución pública incluye solo un catálogo demo; una instalación local puede incorporar un catálogo privado de forma manual. No sincroniza Toteat, no ajusta inventario externo, no envía WhatsApp ni emite boletas. Los perfiles son una demostración visual, sin autenticación real.**
 
 ## Ejecutar la demo
+
+En la instalación con catálogo privado, pulsa **Simular pedido**. Selecciona Programada, un producto y confirma el pago ficticio. En el pedido, **Solicitar marcado** crea el aviso de la campana; **Activar sonido** habilita un tono corto para nuevas solicitudes en esa pestaña. Abrir el aviso no marca físicamente la torta. Inmediata se guarda entregada.
+
+Las simulaciones llevan etiqueta **PRUEBA** y vistas separadas de la operación; no alteran stock ni indicadores operativos. **Retirar prueba** la conserva en **Pruebas retiradas**, desde donde se puede restaurar. Tras la limpieza del catálogo privado no se vuelven a cargar ejemplos iniciales.
+
+Para dejar el servidor local separado de la terminal, sin instalar un servicio:
+
+```sh
+python3 scripts/start_local.py
+```
+
+La conexión automática desde Toteat sigue pendiente. Este botón permite probar solamente el flujo local.
 
 Python 3.11+ y zona `America/Santiago` disponible:
 
@@ -31,7 +43,7 @@ Los ejemplos se cargan una sola vez y conservan su fecha. Selecciona esa fecha o
 | Entregado | Se registró la entrega y se conserva el historial. |
 | Cancelado | Deja de contar en encargadas sin borrar el registro ni anular pagos/ventas. |
 
-«Solicitar marcado» opera sobre **todas las unidades de un ítem**, sin afectar otros ítems del encargo. La demo no divide cantidades parcialmente. «Ya está marcado» resuelve el aviso, sin tocar stock de Toteat. El centro muestra avisos de todas las fechas, con producto, cantidad, retiro, solicitante y hora. Se actualiza al cargar/actualizar el tablero; no hay push.
+«Solicitar marcado» opera sobre **todas las unidades de un ítem**, sin afectar otros ítems del encargo. La demo no divide cantidades parcialmente. «Ya está marcado» resuelve el aviso, sin tocar stock de Toteat. La campana muestra avisos de todas las fechas, con producto, cantidad, retiro y solicitante. Consulta el ERP local cada 15 segundos; no consulta Toteat. El sonido requiere activación expresa y no repite solicitudes vistas al consultar o recargar.
 
 No existe un paso obligatorio de solicitar producción. Las antiguas entradas de ese experimento se mantienen como históricas. Los ítems que seguían en ese estado se devuelven a pendiente mediante una migración idempotente con historial; no se reinterpretan como solicitudes de marcado.
 
@@ -49,9 +61,21 @@ El período usa **fecha programada de retiro/entrega**, en `America/Santiago`, e
 
 «Por marcar» suma pendiente y marcado solicitado. «Encargadas» suma pendiente, marcado solicitado y marcado físico; excluye entregado y cancelado. Cantidades en **productos enteros**, nunca porciones.
 
+## Entrega inmediata y programada
+
+El tipo pertenece al pedido: se mantiene el mismo producto y no se duplica inventario ni categorías.
+
+- **Programada:** requiere nombre ficticio, teléfono ficticio, fecha/hora y pago simulado confirmado; los ítems comienzan pendientes de marcado.
+- **Inmediata:** la venta confirma entrega; todos los ítems nacen entregados, con un evento de creación que registra esa decisión. No generan solicitudes de marcado ni bases pendientes.
+- **Históricos sin tipo:** muestran «Tipo de entrega por confirmar». La migración añade una tabla separada; no deduce el tipo por fecha, comentario o estado, ni modifica pedidos/historial existentes.
+
+El filtro de entrega cambia las tarjetas visibles; los indicadores, resumen y texto para copiar siguen abarcando todo el período. Las entregas inmediatas no participan en la métrica de puntualidad de las programadas. Corregir el tipo no cambia estados automáticamente; una reclasificación a inmediata requiere ítems ya entregados. Las correcciones y reversiones conservan auditoría.
+
+No se interpretan todavía comentarios de Toteat. Un futuro lector deberá conservar el texto original, validar los campos del agendamiento y mandar los casos ambiguos a revisión. Los pedidos no pagados requieren un flujo de autorización explícito todavía pendiente; la demo los rechaza.
+
 ## Catálogo, bases y perfiles demo
 
-El catálogo explícito de `erp/catalog.py` es ficticio, con SKU `DEMO-`. El catálogo real deberá obtenerse de Toteat y limitarse exclusivamente a las categorías **Tortas enteras** y **Dulces enteros** con IDs verificados. No se importará el resto de la carta ni se usará coincidencia parcial de nombres como autorización. SKU desconocidos, trozos y porciones se rechazan; no se adivina que un artículo ambiguo sea entero.
+El catálogo de `erp/catalog.py` es ficticio, con SKU `DEMO-`. El importador local admite un archivo privado previamente revisado, limitado a **Tortas enteras** y **Dulces enteros**, con identidades fuente verificadas. No se importará el resto de la carta ni se usará coincidencia parcial de nombres como autorización. SKU desconocidos, trozos y porciones se rechazan; no se adivina que un artículo ambiguo sea entero.
 
 Los bizcochos tienen formatos de 10 y 20 personas. Hojarasca, mixta y zanahoria solo 20. Cheesecake, pie y kuchen demo tienen formato entero propio, sin imponer 10/20 personas ni inventar receta.
 
@@ -101,6 +125,23 @@ El usuario ingresa los identificadores, el token oculto y `CONSULTAR`. Recibe ca
 
 Solo lee una vez, requiere `ok=true` y valida todas las filas. Excluye otras categorías, modificadores, trozos, formatos ambiguos y conflictos de identidad; colapsa duplicados exactos. La selección de categorías no se guarda. No importa a SQLite ni modifica Toteat. Los valores comerciales aparecen solo en la terminal del usuario; no se guardan archivos, precios, imágenes, descripciones ni credenciales. [Mapeo confirmado y límites](docs/TOTEAT_READONLY.md#vista-previa-del-catálogo).
 
+## Incorporación manual de un catálogo privado
+
+El archivo debe seguir el esquema ilustrado en `fixtures/catalog_import_demo.json`, cuyos productos e identificadores son inventados. No se deben copiar valores reales a ese fixture ni a código, documentación, capturas públicas o commits.
+
+```sh
+python3 scripts/import_catalog.py private/catalog-confirmado.json
+python3 scripts/import_catalog.py private/catalog-confirmado.json --apply --actor "Operador local"
+```
+
+La primera llamada valida únicamente el archivo. `--apply` ejecuta una transacción aditiva en `data/erp-demo.sqlite3`; respalda antes esa base. Tanto `private/` como los archivos SQLite están excluidos de Git. El script no tiene red, no solicita credenciales y no invoca el diagnóstico.
+
+Conserva `id`, `idToteat`, `localCode`, nombre, categoría y su ID exactos, más procedencia y clasificación explícita. La clave `LOCAL-…` es interna al ERP, no un SKU inventado para Toteat. Los productos demo permanecen para mantener sus referencias históricas. Se rechazan identidades duplicadas, categorías incompatibles, colisiones de producto/formato, porciones y campos fuera de alcance.
+
+Repetir un lote idéntico, incluso reordenado, no duplica productos ni auditoría. Un dato diferente para una identidad ya incorporada cancela el lote completo: este importador no sobrescribe ni elimina registros. Las ediciones locales de recetas tienen historial separado y sobreviven a la repetición del catálogo.
+
+La incorporación no crea stock, reservas, precios, pedidos ni producción. Sin conteo, disponibilidad **desconocida**; un cero solo aparece cuando se registra explícitamente. Dulces enteros sin tamaño confirmado no reciben un número de personas inventado. Las bases desconocidas quedan pendientes; las cantidades provisionales se indican como tales.
+
 ## Arquitectura y verificación
 
 ```text
@@ -113,7 +154,8 @@ Diagnóstico manual → GET HTTPS Toteat → solo forma de respuesta (sin import
 | `app.py` | API local, estáticos y protección de Host/origen |
 | `erp/store.py`, `erp/schema.sql` | Persistencia, versiones, auditoría y migración demo |
 | `erp/domain.py` | Rangos, estados, resúmenes y texto para copiar |
-| `erp/catalog.py` | Clasificación demo y bases con aritmética decimal |
+| `erp/catalog.py`, `erp/catalog_import.py` | Catálogo demo, importación local validada y bases con aritmética decimal |
+| `scripts/import_catalog.py` | Validación y aplicación manual desde un archivo privado, sin red |
 | `static/` | Interfaz adaptable a escritorio y móvil |
 | `scripts/toteat_diagnostic.py` | Diagnóstico manual efímero; no lo invoca la UI |
 | `tests/` | Negocio, HTTP y transporte simulado de diagnóstico |
@@ -132,6 +174,6 @@ Desarrollo asistido por IA, con revisión y aprendizaje incremental del autor. P
 
 Identidad negro/blanco inspirada en [Café La Oveja](https://cafelaoveja.cl); crema, oliva y caramelo son interpretación del ERP. Tipografía del sistema; sin fotos ni archivos del logo oficial.
 
-Pendientes: resultado del diagnóstico real y mapeo sanitizado; clasificación del catálogo real de enteros; boletas verificadas; alcance de bases faltantes; notificaciones WhatsApp a Esteban (recordadas, aún sin despacho); autenticación/roles reales, respaldos y servidor de producción. Hosting y GitHub son etapas separadas; no se despliega aquí.
+Pendientes: lectura y mapeo verificados de comandas/ventas, interpretación validada de comentarios y excepciones de pago; boletas verificadas; alcance de bases faltantes; notificaciones WhatsApp a Esteban (recordadas, aún sin despacho); autenticación/roles reales, respaldos y servidor de producción. Hosting y GitHub son etapas separadas; no se despliega aquí.
 
 Guías: [aprendizaje](LEARNING.md), [operación](docs/OPERACION.md), [Toteat](docs/TOTEAT_READONLY.md).
