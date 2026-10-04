@@ -16,7 +16,7 @@ const modules={
   inventory:{name:'Inventario y abastecimiento',icon:'▤',sections:['Existencias','Movimientos','Pedidos sugeridos','Compras','Mermas','Reserva para vitrina']},
   production:{name:'Producción',icon:'◷',sections:['Planificación','Recetas y bases']},
   catalog:{name:'Catálogo y proveedores',icon:'◇',sections:['Productos','Formatos','Proveedores']},
-  reports:{name:'Analítica y reportes',icon:'▥',sections:['Panel ejecutivo','Indicadores de gestión','Ventas por producto','Power BI','Reportes']},
+  reports:{name:'Analítica y reportes',icon:'▥',sections:['Panel ejecutivo','Rentabilidad por producto','Venta conjunta','Demanda por día y horario','Precios y promociones','Canales y reparto','Inventario y mermas','Clientes y recompra','Productividad operativa','Proyección de demanda','Calidad de datos','Power BI','Reportes']},
   costs:{name:'Costos y rentabilidad',icon:'◈',sections:['Costos de recetas','Márgenes por producto','Evolución de costos']},
   customers:{name:'Gestión de clientes',icon:'○',sections:['Directorio','Historial de pedidos','Preferencias de entrega']},
   maintenance:{name:'Activos y mantenimiento',icon:'◇',sections:['Equipos','Mantenciones preventivas','Incidencias']}
