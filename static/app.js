@@ -89,7 +89,7 @@ function toast(text) {
   toastTimer = setTimeout(() => $('#toast').classList.add('hidden'), 4500);
 }
 function dateLabel(value, options = {}) { return new Intl.DateTimeFormat('es-CL', {weekday:'long', day:'numeric', month:'long', ...options}).format(new Date(value + 'T12:00:00')); }
-function badge(status) { return `<span class="badge ${escapeHTML(status)}">${escapeHTML(labels[status])}</span>`; }
+function badge(status) { const icon={pendiente:'◷',solicitado:'◎',marcado_solicitado:'◎',marcado:'✓',entregado:'✓',cancelado:'⊘'}[status]||'•';return `<span class="badge ${escapeHTML(status)}"><span aria-hidden="true">${icon}</span>${escapeHTML(labels[status])}</span>`; }
 function itemLabel(item) { return escapeHTML(item.flavor); }
 function modal(title, subtitle, content, footer = '', eyebrow = 'PEDIDO FICTICIO') {
   state.panelRequest++;
@@ -128,9 +128,10 @@ async function loadBoard() {
 
 function renderModules() {
   const module=modules[state.module];
-  const buttons=Object.entries(modules).map(([key,value])=>`<button type="button" class="module-tab ${state.module===key?'selected':''}" data-module="${key}" aria-current="${state.module===key?'page':'false'}"><span aria-hidden="true">${value.icon}</span><span>${escapeHTML(value.name)}</span>${!['home','cakes','transfers'].includes(key)?`<small>${value.proposed?'Propuesta · por definir':'En preparación'}</small>`:''}</button>`).join('');
-  $('#module-sidebar').innerHTML=buttons;
-  $('#module-mobile').innerHTML=`<details><summary>${escapeHTML(module.name)} <small>Cambiar módulo ▾</small></summary><div class="module-mobile-options">${buttons}</div></details>`;
+  const moduleButton=key=>{const value=modules[key];return `<button type="button" class="module-tab ${state.module===key?'selected':''}" data-module="${key}" aria-current="${state.module===key?'page':'false'}"><span aria-hidden="true">${value.icon}</span><span>${escapeHTML(value.name)}</span>${!['home','cakes','transfers'].includes(key)?'<small>En preparación</small>':''}</button>`;};
+  const groups=[['Operación',['home','cakes','delivery','production','inventory']],['Administración',['transfers','suppliers','catalog','costs','reports']],['Equipo y gestión',['people','shifts','attendance','documents','customers','maintenance']]];
+  $('#module-sidebar').innerHTML=groups.map(([label,keys])=>`<div class="module-group-label">${label}</div>${keys.map(moduleButton).join('')}`).join('');
+  $('#module-mobile').innerHTML=`<details><summary>${escapeHTML(module.name)} <small>Cambiar módulo</small></summary><div class="module-mobile-options">${groups.flatMap(([,keys])=>keys).map(moduleButton).join('')}</div></details>`;
   $('#tortas-workspace').classList.toggle('hidden',state.module!=='cakes');
   $('#module-placeholder').classList.toggle('hidden',state.module==='cakes');
   $('#breadcrumb-module').textContent=module.name;
@@ -184,11 +185,13 @@ function renderOrders() {
     const searchable = [order.customer, order.source_id, order.channel, ...order.items.flatMap(item => [item.flavor,item.size,item.sku])].join(' ').toLocaleLowerCase('es');
     return (state.deliveryFilter === 'all' || order.delivery_timing === state.deliveryFilter) && matchStatus && searchable.includes(state.search.toLocaleLowerCase('es'));
   });
-  $('#orders').innerHTML = orders.map(order => {
+  const cards = orders.map(order => {
     const [day, hour] = order.pickup_at.split('T');
     const initial = order.customer.replace(/^Cliente demo\s*/, '').slice(0,2).toUpperCase();
     return `<article class="order-card" data-order-id="${order.id}"><div class="order-header"><div class="avatar" aria-hidden="true">${escapeHTML(initial)}</div><div class="order-identity"><strong>${escapeHTML(order.customer)}</strong><div class="order-meta"><span>${escapeHTML(order.toteat_schedule ? 'Comanda '+order.toteat_schedule.order_id : order.source_id)}</span><span>·</span><span class="channel">${escapeHTML(order.channel)}</span><span class="timing-label">${escapeHTML(timingLabels[order.delivery_timing])}</span>${order.is_simulation ? '<span class="test-badge">PRUEBA</span>' : ''}</div></div><div class="order-time"><strong>${escapeHTML(dateLabel(day,{weekday:'long',month:'short'}))} · ${hour}</strong><small>${order.fulfillment === 'retiro' ? 'Retiro en local' : 'Despacho'}</small></div></div>${sourceAlertHTML(order.source_alert)}<div>${order.items.map(item => `<div class="item-row"><span class="quantity">${item.quantity}×</span><div class="item-info"><strong>${itemLabel(item)}</strong><small>${escapeHTML(item.size)} · ${escapeHTML(item.sku)}</small></div>${badge(item.status)}</div>`).join('')}</div><div class="order-footer">${order.is_simulation && can('simulate') ? `<button class="text-button" data-action="${order.simulation_archived ? 'restore-test' : 'archive-test'}" data-id="${order.id}">${order.simulation_archived ? 'Restaurar prueba' : 'Retirar prueba'}</button>` : ''}<span class="payment-pill">${order.manual_scheduling?.payment_status==='unpaid'?'◷':'✓'} ${escapeHTML(paymentLabel(order))}</span><button class="detail-button" data-action="detail" data-id="${order.id}" aria-label="Ver detalle de ${escapeHTML(order.customer)}">Ver pedido <span aria-hidden="true">↗</span></button></div></article>`;
   }).join('') || `<div class="empty"><strong>Todo despejado por aquí.</strong>No hay pedidos para esta fecha o filtro.${state.board.operating_mode !== 'toteat-local' && state.board.seed_date && state.board.seed_date !== state.date ? `<br><button class="button secondary" data-action="seed-date">Ver día de los ejemplos</button>` : ''}</div>`;
+  $('#orders').innerHTML=orders.length?`<div class="orders-desktop-table"><table class="agenda-table"><thead><tr><th>Fecha y hora</th><th>Cliente / pedido</th><th>Torta / formato</th><th>Entrega</th><th>Estado</th><th><span class="sr-only">Detalle</span></th></tr></thead><tbody>${orders.map(order=>`<tr data-order-id="${order.id}"><td><strong>${escapeHTML(dateLabel(order.pickup_at.split('T')[0],{weekday:'short',month:'short'}))}</strong><small>${escapeHTML(order.pickup_at.split('T')[1])} · Chile</small></td><td><strong>${escapeHTML(order.customer)}</strong><small>${escapeHTML(order.toteat_schedule?'Comanda '+order.toteat_schedule.order_id:'Pedido #'+order.id)}</small><small>${escapeHTML(order.channel)}</small>${order.is_simulation?'<span class="test-badge">PRUEBA</span>':''}${order.is_simulation&&can('simulate')?`<button class="text-button" data-action="${order.simulation_archived?'restore-test':'archive-test'}" data-id="${order.id}">${order.simulation_archived?'Restaurar':'Retirar prueba'}</button>`:''}</td><td>${order.items.map(item=>`<div class="table-product"><strong>${item.quantity} × ${itemLabel(item)}</strong><small>${escapeHTML(item.size)}</small></div>`).join('')}</td><td>${order.fulfillment==='retiro'?'Retiro en local':'Delivery'}<small>${escapeHTML(timingLabels[order.delivery_timing])}</small><small>${escapeHTML(paymentLabel(order))}</small></td><td>${order.source_alert?`<strong>${escapeHTML(sourceAlertLabel(order.source_alert))}</strong>`:''}${order.items.map(item=>`<div class="table-status">${badge(item.status)}</div>`).join('')}</td><td><button class="detail-button" data-action="detail" data-id="${order.id}" aria-label="Ver pedido de ${escapeHTML(order.customer)}">↗</button></td></tr>`).join('')}</tbody></table></div><div class="orders-mobile-cards">${cards}</div>`:cards;
+
 }
 
 async function showDetail(id) {
@@ -387,7 +390,6 @@ function renderCatalog() {
   $('.demo-tag').textContent = state.scope !== 'operations' ? 'PRUEBA' : localMode ? 'LOCAL' : 'DEMO';
   $('#analytics-caption').textContent = state.scope !== 'operations' ? 'INDICADORES EXCLUSIVOS DE PRUEBA' : localMode ? 'LECTURA DE LA OPERACIÓN · REGISTROS LOCALES' : 'LECTURA DE LA OPERACIÓN · DATOS FICTICIOS';
   $('#catalog-help').textContent = localMode ? 'Solo productos incorporados de Toteat. Sin conteo, la disponibilidad es desconocida; no hay conexión de inventario.' : 'La disponibilidad requiere un conteo local. Sin conteo no significa cero. Los ejemplos conservan sus referencias para mantener el historial.';
-  $('.role-notice').textContent='Acceso personal · los cambios quedan registrados en el historial.';
   const local = products.filter(p => p.source === 'toteat-manual');
   $('#catalog-count').textContent = products.length;
   $('#catalog-context').textContent = localMode ? `${local.length} productos de Toteat incorporados manualmente. Sin productos de ejemplo.` : local.length ? `${local.length} productos incorporados manualmente desde la vista previa Toteat · ${products.length - local.length} ejemplos conservados.` : `${products.length} productos ficticios para probar el flujo.`;
@@ -401,6 +403,7 @@ function renderCatalog() {
 const attentionLabels={upcoming:'Entregas próximas',overdue:'Fecha vencida',unmarked:'Por marcar',unpaid:'Sin pago',incomplete:'Datos incompletos'};
 function renderAttention() {
   const info=state.board.attention;if(!info)return;
+  $('#attention-summary').textContent=`${info.orders.length} pedidos con seguimiento`;
   $('#attention-range').textContent=`Próximos 7 días (${dateLabel(info.start,{weekday:'short',month:'short'})} a ${dateLabel(info.end,{weekday:'short',month:'short'})}) y pendientes de otras fechas. Un pedido puede aparecer en varias prioridades.`;
   $('#attention-counts').innerHTML=Object.entries(attentionLabels).map(([key,label])=>`<div><strong>${info.counts[key]}</strong><span>${label}</span><small>pedidos</small></div>`).join('');
   $('#attention-list').innerHTML=info.orders.map(order=>`<article class="attention-row"><div><strong>${escapeHTML(order.customer)}</strong><p>${escapeHTML(dateLabel(order.pickup_at.split('T')[0],{weekday:'long',month:'short'}))} · ${escapeHTML(order.pickup_at.split('T')[1])}</p><small>${order.issues.map(key=>attentionLabels[key]).join(' · ')}${order.is_simulation?' · PRUEBA':''}</small></div><button class="button secondary" data-action="detail" data-id="${order.id}">Revisar pedido</button></article>`).join('')||'<p class="hint">Sin pendientes para esta vista.</p>';

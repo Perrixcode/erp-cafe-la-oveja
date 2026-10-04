@@ -190,7 +190,7 @@ class HttpTests(unittest.TestCase):
 
     def test_static_health_invalid_date_and_traversal(self):
         with self.request('/') as response:
-            self.assertIn(b'Tortas y dulces enteros',response.read())
+            self.assertIn(b'ERP Oveja',response.read())
             self.assertIn("frame-ancestors 'none'",response.headers['Content-Security-Policy'])
         with self.request('/api/health') as response: self.assertTrue(json.load(response)['authentication_required'])
         for path,code in [('/api/board?date=no',400),('/../app.py',404)]:

@@ -27,3 +27,7 @@ Estas secciones son diseño funcional pendiente, no indicadores conectados ni pr
 - Empezar con reportes descriptivos y comparaciones. Aplicar pronósticos solo después de reunir histórico y evaluar error fuera de muestra.
 
 Prioridad inicial: rentabilidad por producto → demanda por horario → venta conjunta. Requiere cargar y validar costos antes de presentar márgenes.
+
+## Criterio para pronósticos
+
+Antes de adoptar un modelo, comparar su error fuera de muestra con una regla simple, por ejemplo el mismo día de la semana anterior. Una complejidad mayor solo se justifica si mejora esa referencia. Base metodológica: [Hyndman y Athanasopoulos, Forecasting: Principles and Practice, métodos de referencia](https://otexts.com/fpp3/simple-methods.html). Esto no afirma que el ERP ya genere pronósticos.

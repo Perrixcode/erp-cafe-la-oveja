@@ -1,12 +1,25 @@
 # Estado de la entrega actual · 4 octubre 2026
 
-Prioridad: activar ERP aislado en servidor, verificar login y servicios; publicar código autorizado sin datos privados. DNS confirmado hacia el host elegido. Carpetas/usuario/venv propios preparados; Caddy aún sin activar en este punto.
+Carpeta correcta: `/Users/estebaniturra/Documents/ChatGPT/ERP Oveja`. No se borró el origen ni se incorporaron archivos privados a Git.
 
-Implementado y verificado con fixtures: recepción autorizada, cierre sin duplicación, clasificación inmediata, revisión de comentarios incompletos, canal desde Plataforma, anulaciones explícitas y revisión de NC/parciales. Inicio, transferencias del bot y preview/descarga de fotos en el mismo modal. Sin botón redundante Mi cuenta; Toma de pedido manual.
+## Checkpoint de supervisión
 
-Pruebas: 192 Python aprobadas y 4 nuevas de transporte WSGI/archivo/lectura Linux aprobadas; QA Chrome 1180/320 sin overflow ni errores JS para acceso/roles, Inicio, recepción y foto/venta elegida. Nuevos módulos personas, documentos y proveedores son estructura vacía. Facturas semanales: futuro texto copiable a WhatsApp, sin enviar.
+- **Diseño A aplicado** a código local: referencia PDF materializada y revisada sin bloqueo pendiente. Marfil `#F7F4EF`, sidebar `#F2EEE7`, selección `#E4ECE5`, acción `#315C4B`, Noto Sans local. Tabla de agenda en escritorio, tarjetas en móvil, fecha/día/hora, estados con símbolo y texto; prioridades desplegables. Se retiró el slogan genérico del acceso.
+- **QA aislado:** 196 pruebas Python aprobadas en macOS, pruebas Node y sintaxis JS aprobadas. Chrome dedicado 1180/320: acceso, roles, marcado, recarga, privacidad al salir, 16 módulos, recepción, foto y venta elegida. Sin desbordes ni errores JS. Se corrigió una referencia DOM obsoleta detectada durante el ajuste visual; el marcado y refresco posterior vuelven a pasar. Capturas en `qa/*-fake.png`, exclusivamente ficticias. La versión anterior del mismo backend pasó 196 pruebas en Ubuntu.
+- **Bot:** modal con foto y descarga en la misma ventana listo y probado. Se conserva la opción exacta elegida por caja. Hook de archivo ensayado contra 21 pruebas del flujo Ovejita en copia aislada del servidor: aprobado. Todavía no activado en producción. Históricos sin imagen/detalle original se indican no disponibles; no se inventan asociaciones.
+- **Analítica:** estructura preparada y propuesta en `docs/ANALITICA.md`: margen por producto, venta conjunta, horarios, precios, canales/reparto, mermas, recompra, productividad, pronóstico y calidad. Sin pipeline financiero ni KPIs inventados. Personas, documentos y proveedores siguen como módulos por desarrollar; facturas semanales contemplan texto para WhatsApp.
+- **GitHub público:** `https://github.com/Perrixcode/erp-cafe-la-oveja`, identidad Perrixcode verificada. Referencias publicadas previas: `b12e82f` y `2a9d47b`. El diseño A forma parte de la entrega que contiene este checkpoint. Proyecto personal con asistencia técnica. Sin licencia del proyecto elegida.
+- **DNS:** `erp.loxby.cl` resuelve a `46.224.147.187`. Usuario, carpetas, venv y código del ERP preparados de forma aislada. Puerto previsto `127.0.0.1:8010`. **HTTPS y servicios ERP todavía no activados; la URL pública aún no es utilizable.** Caddy y los servicios de Ovejita siguen sin modificar.
+- **Bloqueo explícito:** la revisión automática rechazó pausar el ERP/lector locales y transferir pedidos, clientes, boletas, historial, hashes de cuentas y configuración privada. Se solicitó autorización específica y sigue sin respuesta. No se ejecutó el script de congelación/migración ni se copió ese archivo de datos al servidor. No reintentar ni cambiar el procedimiento para sortear ese rechazo.
+- **Instalación local activa:** procesos anteriores conservados en `http://127.0.0.1:8765`; la nueva versión del backend está verificada en instancias de QA, no reiniciada sobre los datos reales. No afirmar que las funciones nuevas del servidor estén activas en esa instalación todavía.
 
-Pendiente al escribir: ensayo aislado del hook del bot con su entorno Python, publicación GitHub y activación de servicios/Caddy; retirar panel viejo solamente después de comprobar paridad de información. No se aplican rediseños de paleta pendientes de elección.
+## Siguiente paso después de aprobación
+
+1. Congelar escritores locales, obtener y verificar respaldo privado, transferirlo por SSH y comprobar huellas/cuentas/adjuntos en carpeta exclusiva del ERP.
+2. Actualizar el código público en el servidor con el commit final; comprobar alcance restaurante/local sin exponer tokens.
+3. Activar servicios del ERP, lector y proyección privada; Caddy validado, HTTPS, pruebas de login y denegación sin sesión.
+4. Activar hook de fotos con copia/reversión del archivo de Ovejita y verificar integridad de revisiones, selección, historial y cierres. Incluir fotos en respaldo privado del servidor.
+5. Retirar el panel viejo solo tras comprobar paridad; preservar el bot y sus credenciales. Falta respaldo externo cifrado y política de retención.
 
 ## Registro histórico (los estados anteriores no describen la instalación actual)
 

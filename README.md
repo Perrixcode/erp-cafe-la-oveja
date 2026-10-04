@@ -4,6 +4,10 @@ ERP modular para Oveja Cocina y Café. El primer flujo operativo gestiona **tort
 
 **La distribución pública incluye solo datos ficticios. La instalación privada puede leer Toteat: comandas abiertas → Lectura de Toteat; ventas cerradas y saldadas con comentario válido → Agendadas. No escribe pedidos, pagos ni stock en Toteat. La boleta PDF se adjunta cuando llega; no es requisito para agendar. Todo acceso a datos requiere una cuenta autenticada. Los perfiles Socio, Producción y Caja se validan en el servidor; los cambios nuevos registran el usuario real. La demo local usa localhost; la instalación en servidor usa HTTPS y servicios aislados.**
 
+## Interfaz
+
+Dirección visual A: marfil, superficies blancas y verde como acción principal. El tema se centraliza en `static/theme.css`; la agenda usa tabla en escritorio y tarjetas en móvil, con fecha y estados textuales visibles. Noto Sans se sirve localmente, sin petición a Google Fonts. La fuente conserva su licencia propia en `static/fonts/OFL.txt`; esa licencia no se aplica al código del proyecto.
+
 ## Ejecutar la demo
 
 En la instalación con catálogo privado, pulsa **Simular pedido**. Selecciona Programada, un producto y confirma el pago ficticio. En el pedido, **Solicitar marcado** crea el aviso de la campana; **Activar sonido** habilita una campanita con resonancia de unos dos segundos para nuevas solicitudes en esa pestaña. Abrir el aviso no marca físicamente la torta. Inmediata se guarda entregada.

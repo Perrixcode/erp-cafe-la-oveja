@@ -103,7 +103,9 @@ def context(store,received,include_history=False):
             row=sale['transaction'];original=row.get('comment') or ''
             try:result['payment']=settlement(row)
             except (ValueError,TypeError,KeyError):pass
-            reference=datetime.fromisoformat(row['dateClosed']).replace(tzinfo=timezone.utc).astimezone(ZoneInfo('America/Santiago')).date() if row.get('dateClosed') else datetime.now(ZoneInfo('America/Santiago')).date()
+            reference_time=datetime.fromisoformat(row['dateClosed']) if row.get('dateClosed') else datetime.now(timezone.utc)
+            if reference_time.tzinfo is None:reference_time=reference_time.replace(tzinfo=timezone.utc)
+            reference=reference_time.astimezone(ZoneInfo('America/Santiago')).date()
         else:
             original='\n'.join(c['text'] for c in received.get('comments',[]) if isinstance(c.get('text'),str));reference=datetime.now(timezone.utc).date()
         result['parsed']=parse_comment(original,reference)
