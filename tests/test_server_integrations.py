@@ -17,6 +17,7 @@ from erp.toteat_transport import fetch
 from scripts.probe_toteat_comments import ProbeFailure
 from scripts.export_bot_transfers import export_snapshot
 from integrations.ovejita_archive import archive_photo,archive_selected
+from scripts.backup_bot_evidence import backup_evidence
 
 
 class ServerIntegrationTests(unittest.TestCase):
@@ -71,6 +72,19 @@ class ServerIntegrationTests(unittest.TestCase):
         export=self.root/'out/data.json';export_snapshot(db,export)
         row=json.loads(export.read_text())['rows'][0];self.assertIsNone(row['photo']);self.assertIsNone(row['selected_sale'])
         with self.assertRaises(DomainError):read_transfers(export,dict(start='2026-01-01',end='2025-01-01'))
+
+    def test_evidence_backup_is_private_incremental_and_detects_corruption(self):
+        _, photo, fingerprint = self.bot_fixture()
+        source, destination = self.root/'erp-evidence', self.root/'backups'
+        archive_photo(source, photo)
+        self.assertEqual(backup_evidence(source, destination), 1)
+        self.assertEqual(backup_evidence(source, destination), 1)
+        self.assertEqual(len(list((destination/'objects').iterdir())), 1)
+        target = destination/'objects'/fingerprint
+        self.assertEqual(target.read_bytes(), photo)
+        self.assertEqual(target.stat().st_mode & 0o777, 0o600)
+        target.write_bytes(b'corrupt fixture')
+        with self.assertRaises(ValueError):backup_evidence(source, destination)
 
     def test_linux_reader_has_fixed_get_modes_scope_limits_and_no_credential_reflection(self):
         (self.root/'toteat').write_text(json.dumps(dict(xir='111',xil='1',xiu='222',xapitoken='FAKE-TEST-SECRET')))

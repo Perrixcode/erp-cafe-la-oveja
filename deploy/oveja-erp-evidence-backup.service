@@ -1,0 +1,16 @@
+[Unit]
+Description=Verified private backup of Ovejita receipt evidence
+[Service]
+Type=oneshot
+User=cafeteria
+Group=cafeteria
+WorkingDirectory=/opt/oveja-erp/app
+ExecStart=/usr/bin/python3 scripts/backup_bot_evidence.py --source /var/lib/cafeteria/erp-evidence --destination /var/backups/cafeteria/erp-evidence
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateNetwork=true
+ProtectSystem=strict
+ProtectHome=true
+ReadOnlyPaths=/var/lib/cafeteria/erp-evidence
+ReadWritePaths=/var/backups/cafeteria/erp-evidence

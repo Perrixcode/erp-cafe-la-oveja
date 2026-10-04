@@ -99,18 +99,28 @@ def context(store,received,include_history=False):
             result['history']=[dict(r) for r in db.execute('SELECT action,actor,reason,occurred_at,before_json,after_json FROM reception_events WHERE source_id=? ORDER BY id DESC',(key,))]
             for entry in result['history']:
                 entry['before']=json.loads(entry.pop('before_json'));entry['after']=json.loads(entry.pop('after_json'))
+        closed_at=None
+        original='\n'.join(c['text'] for c in received.get('comments',[]) if isinstance(c.get('text'),str))
         if sale:
-            row=sale['transaction'];original=row.get('comment') or ''
+            row=sale['transaction'];original=row.get('comment') or original
             try:result['payment']=settlement(row)
             except (ValueError,TypeError,KeyError):pass
-            reference_time=datetime.fromisoformat(row['dateClosed']) if row.get('dateClosed') else datetime.now(timezone.utc)
+            closed_at=row.get('dateClosed')
+        if not closed_at:
+            evidence=[e for e in received.get('sales_comment_evidence',[]) if str(e.get('order_id'))==str(received['order_id']) and e.get('date_closed')]
+            if evidence:closed_at=evidence[-1]['date_closed']
+            elif received.get('status_label')=='CLOSED':closed_at=received.get('modified_at')
+        try:
+            reference_time=datetime.fromisoformat(closed_at)
             if reference_time.tzinfo is None:reference_time=reference_time.replace(tzinfo=timezone.utc)
-            reference=reference_time.astimezone(ZoneInfo('America/Santiago')).date()
-        else:
-            original='\n'.join(c['text'] for c in received.get('comments',[]) if isinstance(c.get('text'),str));reference=datetime.now(timezone.utc).date()
-        result['parsed']=parse_comment(original,reference)
+        except (ValueError,TypeError):closed_at=None;reference_time=datetime.now(timezone.utc)
+        result['closed_at']=closed_at
+        result['parsed']=parse_comment(original,reference_time.astimezone(ZoneInfo('America/Santiago')).date())
         result['channel']=channel_from_platform(result['parsed']['platform'])
         result['original_comment']=original
+        labels={'nombre_pendiente':'Nombre y apellido','fecha_pendiente':'Fecha de entrega','horario_pendiente':'Hora de entrega','telefono_pendiente':'Teléfono','telefono_por_revisar':'Teléfono por revisar','dia_semana_no_coincide':'Día y fecha no coinciden'}
+        result['missing_fields']=[labels.get(code,'Comentario por revisar') for code in result['parsed']['issues']+result['parsed']['warnings'] if code in labels or code.startswith('campo_repetido_')]
+        result['review_state']='delivered_immediate' if decision and decision['decision']=='immediate' else 'scheduled' if order_id else 'schedule_incomplete' if closed_at and result['parsed']['issues'] else 'payment_review' if closed_at and not result['payment'] else 'source_review' if closed_at else 'waiting_close_payment'
         return result
 
 
@@ -147,13 +157,8 @@ def decide(store,received,decision,partner,reason,expected):
         if before and before['decision']==decision:return dict(before)
         check_revision(db,received,expected);require_bindable(db,key)
         if linked_order(db,key):raise DomainError('La comanda ya tiene un pedido. Revisa ese pedido sin duplicarlo.',409)
-        if decision=='immediate':
-            sale=db.execute('SELECT payload_json FROM reception_sources WHERE source_id=?',(key,)).fetchone()
-            if not sale:raise DomainError('Primero debe recibirse una venta cerrada y saldada.',409)
-            try:settlement(json.loads(sale[0])['transaction'])
-            except (ValueError,KeyError,TypeError):raise DomainError('No se ha comprobado el cierre y saldo de la venta.',409) from None
         db.execute('INSERT INTO reception_decisions(source_id,decision,partner_username,reason,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET decision=excluded.decision,partner_username=excluded.partner_username,reason=excluded.reason,version=version+1,updated_at=excluded.updated_at',(key,decision,partner['username'],reason,now()))
-        event(store,db,key,'venta_inmediata_confirmada' if decision=='immediate' else 'revision_reabierta',partner['username'],reason,dict(before) if before else None,{'decision':decision,'stock_movement':False})
+        event(store,db,key,'venta_inmediata_confirmada' if decision=='immediate' else 'revision_reabierta',partner['username'],reason,dict(before) if before else None,{'decision':decision,'delivery_status':'Entregada inmediata' if decision=='immediate' else None,'payment_recorded':False,'stock_movement':False})
         return dict(db.execute('SELECT * FROM reception_decisions WHERE source_id=?',(key,)).fetchone())
 
 

@@ -177,6 +177,25 @@ class Inbox:
             db.execute('INSERT INTO reader_status VALUES(1,?) ON CONFLICT(id) DO UPDATE SET payload_json=excluded.payload_json',(canonical(status),))
         return status
 
+def attach_sales_context(db,order):
+    """La lista y el detalle usan la misma evidencia privada del lector."""
+    if db.execute("SELECT 1 FROM sqlite_master WHERE name='received_sales_state'").fetchone():
+        row=db.execute('SELECT payload_json FROM received_sales_state WHERE source_key=?',(order['key'],)).fetchone()
+        if row:order['scheduling']=json.loads(row[0])
+    if db.execute("SELECT 1 FROM sqlite_master WHERE name='received_sales_comments'").fetchone():
+        latest={}
+        for payment_id,payload,observed in db.execute('SELECT payment_id,payload_json,observed_at FROM received_sales_comments WHERE source_key=? ORDER BY id',(order['key'],)):
+            latest[payment_id]=dict(json.loads(payload),observed_at=observed)
+        if latest:
+            order['sales_comment_evidence']=list(latest.values())
+            seen={(c['path'],c['text']) for c in order.get('comments',[])}
+            for sale in latest.values():
+                for comment in sale['comments']:
+                    marker=(comment['path'],comment['text'])
+                    if marker not in seen:order.setdefault('comments',[]).append(comment);seen.add(marker)
+    return order
+
+
 def read_inbox(path,include_orders=True):
     path=Path(path)
     if not path.exists():return {'state':'not_configured','orders':[]}
@@ -193,26 +212,7 @@ def read_inbox(path,include_orders=True):
                 result['automatic_scheduling'] = result['sales_reader'].get('automatic_scheduling',False)
         if include_orders:
             result['orders']=[dict(json.loads(r[0]),first_seen=r[1],last_seen=r[2],version=r[3]) for r in db.execute('SELECT payload_json,first_seen,last_seen,version FROM received_orders ORDER BY last_seen DESC LIMIT 100')]
-            # Evidencia separada: un refresco de abiertas nunca borra el comentario
-            # recuperado de una venta, ni convierte ese texto en pago/agendamiento.
-            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='received_sales_comments'").fetchone():
-                for order in result['orders']:
-                    if sales_table:
-                        status = db.execute('SELECT payload_json FROM received_sales_state WHERE source_key=?',(order['key'],)).fetchone()
-                        if status:
-                            order['scheduling'] = json.loads(status[0])
-                    latest = {}
-                    for row in db.execute('SELECT payment_id,payload_json,observed_at FROM received_sales_comments WHERE source_key=? ORDER BY id', (order['key'],)):
-                        latest[row[0]] = dict(json.loads(row[1]), observed_at=row[2])
-                    if latest:
-                        order['sales_comment_evidence'] = list(latest.values())
-                        seen = {(c['path'], c['text']) for c in order['comments']}
-                        for sale in latest.values():
-                            for comment in sale['comments']:
-                                marker = (comment['path'], comment['text'])
-                                if marker not in seen:
-                                    order['comments'].append(comment)
-                                    seen.add(marker)
+            for order in result['orders']:attach_sales_context(db,order)
         result['stored_orders']=db.execute('SELECT COUNT(*) FROM received_orders').fetchone()[0]
         try:result['connected']=result.get('state')=='receiving' and (datetime.now(timezone.utc)-datetime.fromisoformat(result['last_success'])).total_seconds()<90
         except (KeyError,TypeError,ValueError):result['connected']=False
@@ -224,7 +224,7 @@ def get_received(path,key):
     with closing(sqlite3.connect(Path(path).resolve().as_uri()+'?mode=ro',uri=True)) as db:
         row=db.execute('SELECT payload_json FROM received_orders WHERE source_key=?',(key,)).fetchone()
         if not row:raise ValueError('received_order_not_found')
-        return json.loads(row[0])
+        return attach_sales_context(db,json.loads(row[0]))
 
 
 def reception_history(path,key):

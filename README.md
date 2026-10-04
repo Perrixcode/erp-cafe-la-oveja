@@ -109,6 +109,8 @@ El tipo pertenece al pedido: se mantiene el mismo producto y no se duplica inven
 
 El filtro de entrega cambia las tarjetas visibles; los indicadores, resumen y texto para copiar siguen abarcando todo el período. Las entregas inmediatas no participan en la métrica de puntualidad de las programadas. Corregir el tipo no cambia estados automáticamente; una reclasificación a inmediata requiere ítems ya entregados. Las correcciones y reversiones conservan auditoría.
 
+En Lectura Toteat, el comentario queda abierto por defecto y el cierre manual se respeta durante las actualizaciones de la sesión. Los socios pueden **Pasar a venta inmediata**, con confirmación y motivo: queda en **Historial de entregadas** como **Entregada inmediata**, sin demanda programada. La declaración manual no acredita pago ni modifica Toteat o inventario; un cierre posterior conserva la misma identidad.
+
 El lector de ventas cerradas interpreta el comentario siguiendo el afiche de cajeras y conserva el texto original. No infiere entrega inmediata por falta de comentario. Una venta inmediata sigue siendo entrega confirmada en el flujo manual; su clasificación automática por API aún requiere evidencia explícita.
 
 El automático exige cierre y saldo cero con pago registrado, o cierre totalmente saldado con descuento autorizado en Toteat según la regla de los dueños. Un descuento no se etiqueta como dinero recibido. Boleta, marcado y entrega son estados independientes. Manual SOS y agendamiento sin pago están disponibles solo para cuentas de socios autenticadas. [Reglas vigentes](docs/AGENDAMIENTO_Y_SOS.md).
@@ -127,7 +129,7 @@ La contraseña se escribe oculta, mínimo 12 caracteres. Solo se guarda un hash 
 
 ## Contingencias SOS
 
-**Iniciar sesión como socio → Contingencias SOS → Nuevo pedido SOS.** Un ingreso sin pago se guarda fuera de producción hasta que un socio autorice **Agendar sin pago** con motivo. La autorización no confirma dinero, boleta, marcado ni entrega. Un pago verificado manualmente exige referencia y se etiqueta como declaración del socio.
+**Iniciar sesión como socio → Toma de pedido manual.** Un ingreso sin pago se guarda fuera de producción hasta que un socio autorice **Forzar agendamiento** con motivo. La autorización no confirma dinero, boleta, marcado ni entrega. Un pago verificado manualmente exige referencia y se etiqueta como declaración del socio.
 
 Una comanda recibida puede vincularse con identidad y cantidades verificadas; su llegada posterior conserva el mismo pedido y los datos locales. Las coincidencias ambiguas se revisan antes de agregar demanda. Auditoría, idempotencia, control de versión y protección ante llegadas simultáneas evitan duplicaciones por reintento. [Flujo, conciliación y límites](docs/AGENDAMIENTO_Y_SOS.md).
 

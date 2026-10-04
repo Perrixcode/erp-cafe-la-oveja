@@ -72,6 +72,57 @@ class ReceptionTests(unittest.TestCase):
         body=self.schedule(received);body['order']['items']=[dict(sku='forged',quantity=99)]
         order=self.api('/api/toteat/reception/schedule',body)[0];self.assertEqual(order['items'][0]['quantity'],2)
 
+    def test_force_requires_partner_reason_and_audits_without_payment(self):
+        _,_,received=self.prepare(False);body=self.schedule(received)
+        for role in ('production','cashier'):
+            username='qa-'+role
+            self.auth.create(username,'Cuenta ficticia '+role,'Clave-ficticia-QA-2026',role)
+            self.api('/api/partner/login',{'username':username,'password':'Clave-ficticia-QA-2026'})
+            with self.assertRaises(HTTPError) as denied:self.api('/api/toteat/reception/schedule',body,headers={'X-ERP-Role':'socio'})
+            denied.exception.close();self.assertEqual(denied.exception.code,403)
+            immediate=dict(source_key=received['key'],revision=body['revision'],decision='immediate',reason='Intento ficticio sin permiso')
+            with self.assertRaises(HTTPError) as denied:self.api('/api/toteat/reception/decide',immediate)
+            denied.exception.close();self.assertEqual(denied.exception.code,403)
+        self.login()
+        with self.assertRaises(HTTPError) as denied:self.api('/api/toteat/reception/schedule',dict(body,reason=' '))
+        denied.exception.close();self.assertEqual(denied.exception.code,400)
+        order=self.api('/api/toteat/reception/schedule',body)[0]
+        self.assertFalse(order['payment_confirmed']);self.assertEqual(order['receipt']['status'],'pending')
+        events=self.store.history(order['id'])
+        event=next(e for e in events if e['action']=='agendado_por_socio')
+        self.assertEqual(event['actor'],'socio-qa');self.assertEqual(event['reason'],body['reason'])
+
+    def test_legacy_closed_comment_is_review_not_waiting_for_close(self):
+        row,_,received=self.prepare(False,comment='Nombre: Cliente ficticio')
+        details=reception.context(self.store,received)
+        self.assertEqual(details['original_comment'],row['comment'])
+        self.assertIsNotNone(details['closed_at']);self.assertIsNone(details['payment'])
+        self.assertEqual(details['review_state'],'schedule_incomplete')
+        self.assertIn('Fecha de entrega',details['missing_fields']);self.assertIn('Hora de entrega',details['missing_fields'])
+        self.assertIsNone(details['decision']);self.assertIsNone(details['order_id'])
+        row,_,received=self.prepare(True,comment='Nombre: Cliente ficticio')
+        details=reception.context(self.store,received)
+        self.assertIsNotNone(details['payment']);self.assertEqual(details['review_state'],'schedule_incomplete')
+
+    def test_manual_immediate_records_delivery_without_inventing_payment_and_sync_preserves_it(self):
+        self.login();row,candidate,received=self.prepare(False)
+        body=dict(source_key=received['key'],revision=reception.context(self.store,received)['revision'],decision='immediate',reason='Socio confirma entrega ficticia desde vitrina')
+        with self.assertRaises(HTTPError) as denied:self.api('/api/toteat/reception/decide',body,headers={'Origin':'https://otro-sitio.invalid'})
+        denied.exception.close();self.assertEqual(denied.exception.code,403)
+        with self.assertRaises(HTTPError) as denied:self.api('/api/toteat/reception/decide',dict(body,reason=''))
+        denied.exception.close();self.assertEqual(denied.exception.code,400)
+        self.api('/api/toteat/reception/decide',body);self.api('/api/toteat/reception/decide',body)
+        details=reception.context(self.store,received,True)
+        self.assertIsNone(details['payment']);self.assertEqual(details['review_state'],'delivered_immediate')
+        events=[e for e in details['history'] if e['action']=='venta_inmediata_confirmada']
+        self.assertEqual(len(events),1);self.assertFalse(events[0]['after']['payment_recorded'])
+        self.assertEqual(events[0]['after']['delivery_status'],'Entregada inmediata')
+        self.assertEqual(events[0]['actor'],'socio-qa')
+        reception.observe_sale(self.store,self.scope,row,candidate)
+        with self.assertRaisesRegex(ValueError,'classified_immediate'):self.store.import_toteat_schedule(self.scope,row,candidate)
+        self.assertEqual(reception.context(self.store,received)['review_state'],'delivered_immediate')
+        self.assertEqual(self.api('/api/toteat')[0]['orders'],[])
+
     def test_explicit_cancellation_dedupes_preserves_payment_blocks_reversal(self):
         key=self.order['source_id'];row=dict(orderId=self.row['orderId'],orderStatus='CANCELLED')
         before=self.store.get(self.order['id'])
