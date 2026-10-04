@@ -97,23 +97,27 @@ class ReceptionTests(unittest.TestCase):
         details=reception.context(self.store,received)
         self.assertEqual(details['original_comment'],row['comment'])
         self.assertIsNotNone(details['closed_at']);self.assertIsNone(details['payment'])
-        self.assertEqual(details['review_state'],'schedule_incomplete')
+        self.assertEqual(details['review_state'],'waiting_closed_payload');self.assertFalse(details['can_classify_immediate'])
         self.assertIn('Fecha de entrega',details['missing_fields']);self.assertIn('Hora de entrega',details['missing_fields'])
         self.assertIsNone(details['decision']);self.assertIsNone(details['order_id'])
         row,_,received=self.prepare(True,comment='Nombre: Cliente ficticio')
         details=reception.context(self.store,received)
         self.assertIsNotNone(details['payment']);self.assertEqual(details['review_state'],'schedule_incomplete')
 
-    def test_manual_immediate_records_delivery_without_inventing_payment_and_sync_preserves_it(self):
+    def test_manual_immediate_requires_received_settlement_and_sync_preserves_it(self):
         self.login();row,candidate,received=self.prepare(False)
         body=dict(source_key=received['key'],revision=reception.context(self.store,received)['revision'],decision='immediate',reason='Socio confirma entrega ficticia desde vitrina')
         with self.assertRaises(HTTPError) as denied:self.api('/api/toteat/reception/decide',body,headers={'Origin':'https://otro-sitio.invalid'})
         denied.exception.close();self.assertEqual(denied.exception.code,403)
         with self.assertRaises(HTTPError) as denied:self.api('/api/toteat/reception/decide',dict(body,reason=''))
         denied.exception.close();self.assertEqual(denied.exception.code,400)
+        with self.assertRaises(HTTPError) as denied:self.api('/api/toteat/reception/decide',body)
+        denied.exception.close();self.assertEqual(denied.exception.code,409)
+        reception.observe_sale(self.store,self.scope,row,candidate)
+        body['revision']=reception.context(self.store,received)['revision']
         self.api('/api/toteat/reception/decide',body);self.api('/api/toteat/reception/decide',body)
         details=reception.context(self.store,received,True)
-        self.assertIsNone(details['payment']);self.assertEqual(details['review_state'],'delivered_immediate')
+        self.assertIsNotNone(details['payment']);self.assertEqual(details['review_state'],'delivered_immediate')
         events=[e for e in details['history'] if e['action']=='venta_inmediata_confirmada']
         self.assertEqual(len(events),1);self.assertFalse(events[0]['after']['payment_recorded'])
         self.assertEqual(events[0]['after']['delivery_status'],'Entregada inmediata')
@@ -127,12 +131,17 @@ class ReceptionTests(unittest.TestCase):
         key=self.order['source_id'];row=dict(orderId=self.row['orderId'],orderStatus='CANCELLED')
         before=self.store.get(self.order['id'])
         reception.inspect_cancellation(self.store,self.scope,row);reception.inspect_cancellation(self.store,self.scope,row)
-        order=self.store.get(self.order['id']);self.assertEqual(order['status_label'],'Anulado')
-        self.assertEqual(order['items'][0]['status'],'cancelado');self.assertEqual(order['payment_confirmed'],before['payment_confirmed'])
+        order=self.store.get(self.order['id']);self.assertEqual(order['status_label'],'Anulada en Toteat · Revisar')
+        self.assertEqual(order['items'][0]['status'],before['items'][0]['status']);self.assertEqual(order['payment_confirmed'],before['payment_confirmed'])
         history=self.store.history(order['id']);self.assertEqual(history[0]['before']['status_label'],'Agendado')
         self.assertEqual(sum(e['action']=='anulacion_detectada' for e in history),1)
         with self.assertRaises(DomainError):self.store.transition(order['id'],order['items'][0]['id'],'pendiente','QA','Reversión ficticia',order['version'],True)
         with self.assertRaisesRegex(ValueError,'source_cancelled'):self.store.import_toteat_schedule(self.scope,self.row,self.candidate)
+        alert=order['source_alert']
+        reception.resolve_alert(self.store,key,self.partner,'Socio confirma anulación ficticia',alert['version'],'cancel')
+        reception.resolve_alert(self.store,key,self.partner,'Socio confirma anulación ficticia',alert['version'],'cancel')
+        after=self.store.get(order['id']);self.assertEqual(after['status_label'],'Anulado');self.assertEqual(after['items'][0]['status'],'cancelado')
+        self.assertEqual(sum(e['action']=='anulacion_confirmada_socio' for e in self.store.history(order['id'])),1)
 
     def test_partial_and_credit_note_require_review_numeric_status_never_cancels(self):
         row,candidate,received=self.prepare();product=self.store.catalog()[0]['source_product']['idToteat']
@@ -146,6 +155,26 @@ class ReceptionTests(unittest.TestCase):
         reception.observe_sale(self.store,self.scope,dict(row,fiscalType='NC',products=[]))
         self.assertEqual(reception.context(self.store,received)['alert']['state'],'refund_review')
         self.assertIsNone(reception.context(self.store,received)['alert']['resolution'])
+
+    def test_immediate_eligibility_truth_table_and_changed_source_is_rejected(self):
+        complete='Nombre: Cliente ficticio\nTeléfono: 000000000\nFecha: 30/10/2026\nHorario: 18:00\nPlataforma: LOCAL'
+        for comment in ('','Nombre: Cliente ficticio',complete):
+            for closed in (False,True):
+                for paid in (False,True):
+                    for cancelled in (False,True):
+                        with self.subTest(comment=bool(comment),complete=comment==complete,closed=closed,paid=paid,cancelled=cancelled):
+                            row=dict(self.row,comment=comment,dateClosed='2026-10-04T18:00:00' if closed else None,total=100,payed=100 if paid else 0,difference=0 if paid else 100,discounts=0)
+                            allowed=reception.immediate_eligible({'transaction':row},{'state':'cancelled'} if cancelled else None,None,None)
+                            self.assertEqual(allowed,closed and paid and not cancelled and comment!=complete)
+        row=dict(self.row,comment='',total=0,payed=0,discounts=-100,difference=0)
+        self.assertTrue(reception.immediate_eligible({'transaction':row},None,None,None))
+        self.login();row,candidate,received=self.prepare()
+        stale=reception.context(self.store,received)['revision']
+        reception.observe_sale(self.store,self.scope,dict(row,comment=complete),candidate)
+        body=dict(source_key=received['key'],revision=stale,decision='immediate',reason='Prueba de carrera')
+        with self.assertRaises(HTTPError) as denied:self.api('/api/toteat/reception/decide',body)
+        denied.exception.close();self.assertEqual(denied.exception.code,409)
+        self.assertIsNone(reception.context(self.store,received)['decision'])
 
     def test_platform_aliases(self):
         for raw,expected in [('Local','Presencial'),(' IG ','Instagram'),('Instagram','Instagram'),('web','Web/Mercat'),('Mercat','Web/Mercat'),('Otro','No informado')]:self.assertEqual(channel_from_platform(raw),expected)

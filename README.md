@@ -109,7 +109,9 @@ El tipo pertenece al pedido: se mantiene el mismo producto y no se duplica inven
 
 El filtro de entrega cambia las tarjetas visibles; los indicadores, resumen y texto para copiar siguen abarcando todo el período. Las entregas inmediatas no participan en la métrica de puntualidad de las programadas. Corregir el tipo no cambia estados automáticamente; una reclasificación a inmediata requiere ítems ya entregados. Las correcciones y reversiones conservan auditoría.
 
-En Lectura Toteat, el comentario queda abierto por defecto y el cierre manual se respeta durante las actualizaciones de la sesión. Los socios pueden **Pasar a venta inmediata**, con confirmación y motivo: queda en **Historial de entregadas** como **Entregada inmediata**, sin demanda programada. La declaración manual no acredita pago ni modifica Toteat o inventario; un cierre posterior conserva la misma identidad.
+En Lectura Toteat, el comentario queda abierto por defecto y el cierre manual se respeta durante las actualizaciones de la sesión. Los socios pueden **Pasar a venta inmediata** solo tras recibir la venta cerrada y saldada con comentario vacío o incompleto, con confirmación y motivo: queda en **Historial de entregadas** como **Entregada inmediata**, sin demanda programada. El saldo con descuento se distingue del dinero recibido. La clasificación no modifica Toteat o inventario; un cierre posterior conserva la misma identidad.
+
+Una anulación explícita de Toteat se resalta para revisión: el socio confirma **Anular en ERP** con motivo. Solo entonces cambia los compromisos pendientes; conserva entregas previas, pago e historial. Las pestañas **Anuladas** y **Entrega inmediata** muestran los registros resueltos sin duplicarlos en Lectura.
 
 El lector de ventas cerradas interpreta el comentario siguiendo el afiche de cajeras y conserva el texto original. No infiere entrega inmediata por falta de comentario. Una venta inmediata sigue siendo entrega confirmada en el flujo manual; su clasificación automática por API aún requiere evidencia explícita.
 

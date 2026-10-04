@@ -43,10 +43,10 @@ def inbox_view(path,store=None):
         order['reception']=details
         decision=(details.get('decision') or {}).get('decision')
         alert=details.get('alert') or {}
-        if decision=='immediate' or alert.get('state')=='cancelled':
-            reviewed.append(order)
-        elif alert and not alert.get('resolution'):
+        if alert and not alert.get('resolution'):
             pending.append(order)
+        elif decision=='immediate' or (alert.get('state')=='cancelled' and alert.get('resolution')=='cancel'):
+            reviewed.append(order)
         elif details.get('order_id') or order.get('scheduling',{}).get('status')=='scheduled' or order.get('key') in linked:
             if order.get('scheduling',{}).get('status')=='needs_review':pending.append(order)
             else:scheduled+=1

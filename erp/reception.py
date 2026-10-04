@@ -85,6 +85,19 @@ def check_revision(db,received,expected):
     if not isinstance(expected,str) or revision(db,received)!=expected:raise DomainError('La comanda cambió. Actualiza y revisa antes de decidir.',409)
 
 
+def immediate_eligible(sale,alert,order_id,decision):
+    """Evidencia cerrada recibida y saldada, con comentario vacío/incompleto."""
+    if not sale or alert or order_id or (decision and decision['decision']=='immediate'):return False
+    row=sale['transaction']
+    try:
+        payment=settlement(row)
+        reference=datetime.fromisoformat(payment['date_closed'])
+        if reference.tzinfo is None:reference=reference.replace(tzinfo=timezone.utc)
+        parsed=parse_comment(row.get('comment') or '',reference.astimezone(ZoneInfo('America/Santiago')).date())
+    except (ValueError,TypeError,KeyError):return False
+    return bool(parsed['issues'] or any(w in ('telefono_pendiente','telefono_por_revisar') for w in parsed['warnings']))
+
+
 def context(store,received,include_history=False):
     key=received['key']
     with store.connect() as db:
@@ -102,7 +115,7 @@ def context(store,received,include_history=False):
         closed_at=None
         original='\n'.join(c['text'] for c in received.get('comments',[]) if isinstance(c.get('text'),str))
         if sale:
-            row=sale['transaction'];original=row.get('comment') or original
+            row=sale['transaction'];original=row.get('comment') or ''
             try:result['payment']=settlement(row)
             except (ValueError,TypeError,KeyError):pass
             closed_at=row.get('dateClosed')
@@ -115,12 +128,14 @@ def context(store,received,include_history=False):
             if reference_time.tzinfo is None:reference_time=reference_time.replace(tzinfo=timezone.utc)
         except (ValueError,TypeError):closed_at=None;reference_time=datetime.now(timezone.utc)
         result['closed_at']=closed_at
+        result['closed_payload_received']=bool(sale and closed_at)
+        result['can_classify_immediate']=immediate_eligible(sale,alert,order_id,decision)
         result['parsed']=parse_comment(original,reference_time.astimezone(ZoneInfo('America/Santiago')).date())
         result['channel']=channel_from_platform(result['parsed']['platform'])
         result['original_comment']=original
         labels={'nombre_pendiente':'Nombre y apellido','fecha_pendiente':'Fecha de entrega','horario_pendiente':'Hora de entrega','telefono_pendiente':'Teléfono','telefono_por_revisar':'Teléfono por revisar','dia_semana_no_coincide':'Día y fecha no coinciden'}
         result['missing_fields']=[labels.get(code,'Comentario por revisar') for code in result['parsed']['issues']+result['parsed']['warnings'] if code in labels or code.startswith('campo_repetido_')]
-        result['review_state']='delivered_immediate' if decision and decision['decision']=='immediate' else 'scheduled' if order_id else 'schedule_incomplete' if closed_at and result['parsed']['issues'] else 'payment_review' if closed_at and not result['payment'] else 'source_review' if closed_at else 'waiting_close_payment'
+        result['review_state']='delivered_immediate' if decision and decision['decision']=='immediate' else 'scheduled' if order_id else 'waiting_closed_payload' if closed_at and not sale else 'payment_review' if closed_at and not result['payment'] else 'schedule_incomplete' if result['payment'] and result['can_classify_immediate'] else 'source_review' if closed_at else 'waiting_close_payment'
         return result
 
 
@@ -157,6 +172,11 @@ def decide(store,received,decision,partner,reason,expected):
         if before and before['decision']==decision:return dict(before)
         check_revision(db,received,expected);require_bindable(db,key)
         if linked_order(db,key):raise DomainError('La comanda ya tiene un pedido. Revisa ese pedido sin duplicarlo.',409)
+        if decision=='immediate':
+            sale=db.execute('SELECT payload_json FROM reception_sources WHERE source_id=?',(key,)).fetchone()
+            alert=db.execute('SELECT * FROM order_source_alerts WHERE source_id=?',(key,)).fetchone()
+            if not immediate_eligible(json.loads(sale[0]) if sale else None,alert,None,before):
+                raise DomainError('Requiere venta cerrada y saldada recibida, comentario vacío o incompleto y ninguna anulación.',409)
         db.execute('INSERT INTO reception_decisions(source_id,decision,partner_username,reason,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET decision=excluded.decision,partner_username=excluded.partner_username,reason=excluded.reason,version=version+1,updated_at=excluded.updated_at',(key,decision,partner['username'],reason,now()))
         event(store,db,key,'venta_inmediata_confirmada' if decision=='immediate' else 'revision_reabierta',partner['username'],reason,dict(before) if before else None,{'decision':decision,'delivery_status':'Entregada inmediata' if decision=='immediate' else None,'payment_recorded':False,'stock_movement':False})
         return dict(db.execute('SELECT * FROM reception_decisions WHERE source_id=?',(key,)).fetchone())
@@ -170,10 +190,7 @@ def record_alert(store,key,state,evidence):
         order_id=linked_order(db,key)
         before=store._get(db,order_id) if order_id else None
         db.execute('INSERT INTO order_source_alerts(source_id,order_id,state,digest,evidence_json,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET order_id=excluded.order_id,state=excluded.state,digest=excluded.digest,evidence_json=excluded.evidence_json,resolution=NULL,version=version+1,updated_at=excluded.updated_at',(key,order_id,state,fingerprint,canonical(evidence),now()))
-        if state=='cancelled' and order_id:
-            # La entrega efectuada no se borra; los compromisos pendientes se anulan.
-            db.execute("UPDATE items SET status='cancelado' WHERE order_id=? AND status NOT IN ('entregado','cancelado')",(order_id,))
-            store._touch(db,order_id)
+        # Detectar conserva los estados locales; anular requiere confirmación del socio.
         event(store,db,key,'anulacion_detectada' if state=='cancelled' else 'revision_fuente_requerida','Lector Toteat','Anulación explícita recibida de Toteat.' if state=='cancelled' else 'Revisar anulación parcial o documento financiero antes de modificar el encargo.',before,{'state':state,'evidence':evidence},order_id)
 
 
@@ -200,7 +217,7 @@ def resolve_alert(store,key,partner,reason,version,decision):
     with store.connect() as db:
         db.execute('BEGIN IMMEDIATE');alert=db.execute('SELECT * FROM order_source_alerts WHERE source_id=?',(key,)).fetchone()
         if not alert:raise DomainError('No hay una alerta para revisar.',404)
-        if alert['state']=='cancelled':raise DomainError('La anulación ya está registrada y no se puede descartar por esta vía.',409)
+        if alert['state']=='cancelled' and decision!='cancel':raise DomainError('La fuente está anulada. Solo puede confirmarse la anulación local.',409)
         if alert['resolution']==decision:return dict(alert)
         if type(version) is not int or version!=alert['version']:raise DomainError('La alerta cambió; actualiza antes de resolver.',409)
         order_id=linked_order(db,key)

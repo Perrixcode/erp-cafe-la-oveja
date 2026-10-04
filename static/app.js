@@ -24,7 +24,7 @@ const modules={
 const initialView = new URLSearchParams(location.search);
 const localThemePreview=['127.0.0.1','localhost'].includes(location.hostname)&&['b','c'].includes(initialView.get('theme'))?initialView.get('theme'):'';
 if(localThemePreview)document.documentElement.dataset.theme=localThemePreview;
-for (const [key, allowed] of [['scope',['operations','tests','archived']],['view',['agenda','inbox']],['period',['day','week','biweekly','month','custom']]]) {
+for (const [key, allowed] of [['scope',['operations','tests','archived']],['view',['agenda','inbox','cancelled','immediate']],['period',['day','week','biweekly','month','custom']]]) {
   if (allowed.includes(initialView.get(key))) state[key]=initialView.get(key);
 }
 if(modules[initialView.get('module')])state.module=initialView.get('module');
@@ -170,7 +170,7 @@ function rememberView() {
   history.replaceState(null,'',`${location.pathname}?${params}`);
 }
 function renderWorkflow() {
-  document.body.classList.toggle('inbox-view',state.view==='inbox');
+  document.body.classList.toggle('inbox-view',state.view!=='agenda');
   for(const button of document.querySelectorAll('[data-view]')) {
     const active=button.dataset.view===state.view;
     button.classList.toggle('selected',active);button.setAttribute('aria-pressed',String(active));
@@ -179,11 +179,12 @@ function renderWorkflow() {
   const tests=state.board.test_order_count||0;
   $('#tests-in-period').classList.toggle('hidden',state.scope!=='operations'||!tests||state.board.operating_mode!=='toteat-local');
   $('#tests-in-period').innerHTML=`Hay ${tests} ${tests===1?'pedido de prueba agendado':'pedidos de prueba agendados'} en este período. Están separados de la operación. <button class="text-button" data-action="view-tests">Ver simulaciones del período →</button>`;
-  $('#record-scope-wrap').classList.toggle('hidden',state.view==='inbox'||state.board.operating_mode!=='toteat-local');
+  $('#record-scope-wrap').classList.toggle('hidden',state.view!=='agenda'||state.board.operating_mode!=='toteat-local');
 }
 function renderOrders() {
   if (!state.board) return;
   const orders = state.board.orders.filter(order => {
+    if(order.source_alert?.resolution==='cancel')return false;
     const matchStatus = state.filter === 'all' || order.items.some(item => state.filter === 'to-mark' ? ['pendiente','marcado_solicitado'].includes(item.status) : state.filter === 'marked' ? item.status === 'marcado' : ['entregado','cancelado'].includes(item.status));
     const searchable = [order.customer, order.source_id, order.channel, ...order.items.flatMap(item => [item.flavor,item.size,item.sku])].join(' ').toLocaleLowerCase('es');
     return (state.deliveryFilter === 'all' || order.delivery_timing === state.deliveryFilter) && matchStatus && searchable.includes(state.search.toLocaleLowerCase('es'));

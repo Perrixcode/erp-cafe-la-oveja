@@ -184,7 +184,8 @@ class Store:
         order['source_comment'] = order.get('toteat_schedule',{}).get('original_comment',order['comments'] if source else '')
         from erp.reception import order_alert
         order['source_alert'] = order_alert(db,order_id)
-        if order['source_alert'] and order['source_alert']['state']=='cancelled':order['status_label']='Anulado'
+        if order['source_alert'] and order['source_alert']['state']=='cancelled':
+            order['status_label']='Anulado' if order['source_alert']['resolution']=='cancel' else 'Anulada en Toteat · Revisar'
         return order
 
     def import_toteat_schedule(self, scope, transaction, candidate, is_test=False, receipt=None):
