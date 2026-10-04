@@ -49,3 +49,5 @@ Lookup secundario del proyecto de transferencias, solo README/configs de desplie
 Tras la reconexión del equipo, el servidor de la demo se volvió a iniciar sobre la misma SQLite. Los conectores de UI devolvieron `Transport closed`, por lo que no se pudo repetir la captura final de320px ni confirmar visualmente la ventana nueva de VS Code. El QA de interacción/capturas anteriores sí se completó; las pruebas automáticas finales pasaron después de los cambios.
 
 El usuario obtuvo una respuesta JSON tras corregir TLS; esto no confirma todavía éxito semántico ni catálogo validado. El diagnóstico se amplió a esquema acotado con nombres seguros, flags conocidos y tipos sin valores comerciales. Se espera la siguiente ejecución manual del usuario.
+
+Publicación verificada: https://github.com/Perrixcode/erp-cafe-la-oveja (público). Commit inicial de implementación `45b1d01a6010ec28227596ec83f63a90da2828ca`, idéntico en Git local y API oficial GitHub. Sin licencia agregada ni despliegue.
