@@ -51,3 +51,9 @@ Tras la reconexión del equipo, el servidor de la demo se volvió a iniciar sobr
 El usuario obtuvo una respuesta JSON tras corregir TLS; esto no confirma todavía éxito semántico ni catálogo validado. El diagnóstico se amplió a esquema acotado con nombres seguros, flags conocidos y tipos sin valores comerciales. Se espera la siguiente ejecución manual del usuario.
 
 Publicación verificada: https://github.com/Perrixcode/erp-cafe-la-oveja (público). Commit inicial de implementación `45b1d01a6010ec28227596ec83f63a90da2828ca`, idéntico en Git local y API oficial GitHub. Sin licencia agregada ni despliegue.
+
+## Continuación: vista previa local del catálogo
+
+Se añadió `scripts/toteat_catalog_preview.py`: consulta manual única, selección explícita de IDs reales de las dos categorías por nombre completo, tabla local de candidatos e informe de excluidos. Sin importación ni persistencia comercial/credenciales. Se confirmó mediante respuesta comunicada por el usuario el sobre `ok=true`, `data` array y los campos de categoría/producto; los valores e IDs reales no se copiaron al repositorio.
+
+58 pruebas aprobadas (14 nuevas de catálogo), incluyendo conflictos de categorías/identidad, duplicados, exclusión de modificadores/porciones, selección explícita, balance de conteos, fallos `ok=false`, cancelación, ausencia de escritura y bloqueo de token reflejado. El usuario debe ejecutar la consulta autenticada y revisar la selección; el agente no la ejecutó.

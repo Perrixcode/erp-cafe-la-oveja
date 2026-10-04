@@ -122,7 +122,17 @@ def describe(value):
     return result
 
 
-def query(endpoint, parameters, identifiers, token, open_url=None):
+def reflects_secret(value, secret):
+    if isinstance(value,str):
+        return secret in value
+    if isinstance(value,dict):
+        return any(reflects_secret(key,secret) or reflects_secret(item,secret) for key,item in value.items())
+    if isinstance(value,list):
+        return any(reflects_secret(item,secret) for item in value)
+    return False
+
+
+def query(endpoint, parameters, identifiers, token, open_url=None, *, project=describe):
     validate(endpoint,parameters,identifiers)
     if not isinstance(token,str) or not token.strip() or len(token)>4096:
         raise DiagnosticError('Credencial vacía o demasiado larga.')
@@ -141,7 +151,12 @@ def query(endpoint, parameters, identifiers, token, open_url=None):
                 value = json.loads(body)
             except (ValueError,UnicodeDecodeError):
                 raise DiagnosticError('La respuesta no contiene JSON válido; no se mostró ni guardó.') from None
-            return describe(value)
+            result = project(value)
+            # Nunca devolver una credencial que el proveedor pudiera reflejar
+            # en un valor o nombre de campo de la respuesta.
+            if reflects_secret(result,token.strip()):
+                raise DiagnosticError('La respuesta refleja una credencial; se bloqueó su visualización.')
+            return result
     except HTTPError as error:
         code = error.code
         error.close()

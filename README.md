@@ -89,6 +89,18 @@ Primera opción: `1`, catálogo `products` activos. Solicita IDs y token mediant
 
 El diagnóstico conserva TLS y validación de hostname. En macOS, si falta el bundle CA de Python.org, usa el bundle público del sistema `/etc/ssl/cert.pem`. Errores clasificados como TLS/DNS/timeout no muestran URL, token ni respuesta. Nunca pegar credenciales en chat o en el repositorio. Ver [guía de lectura](docs/TOTEAT_READONLY.md).
 
+## Vista previa local del catálogo real
+
+El siguiente paso, separado de la demo, es:
+
+```sh
+python3 scripts/toteat_catalog_preview.py
+```
+
+El usuario ingresa los identificadores, el token oculto y `CONSULTAR`. Recibe candidatos de **Tortas enteras** y **Dulces enteros** con los IDs y nombres realmente presentes en la respuesta; selecciona los números y confirma `VER`. La terminal muestra productos de esas categorías con `id`, `idToteat`, código local, nombre y cantidad de opciones, junto con un informe de excluidos. Es un filtro local: no se inventa un parámetro de categoría para Toteat.
+
+Solo lee una vez, requiere `ok=true` y valida todas las filas. Excluye otras categorías, modificadores, trozos, formatos ambiguos y conflictos de identidad; colapsa duplicados exactos. La selección de categorías no se guarda. No importa a SQLite ni modifica Toteat. Los valores comerciales aparecen solo en la terminal del usuario; no se guardan archivos, precios, imágenes, descripciones ni credenciales. [Mapeo confirmado y límites](docs/TOTEAT_READONLY.md#vista-previa-del-catálogo).
+
 ## Arquitectura y verificación
 
 ```text

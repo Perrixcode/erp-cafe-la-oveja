@@ -33,3 +33,33 @@ La estructura recibida solo confirma una respuesta JSON; no demuestra que sea un
 Boletas: FiscalDocuments estaba deshabilitado en la referencia; no se activa ni consulta en esta entrega. Falta confirmar si devuelve PDF, enlaces o solo metadatos. Nunca fabricar una URL. Los documentos de la demo permanecen pendientes.
 
 Notificaciones WhatsApp a Esteban: requisito conservado para la siguiente etapa; definir destino y autorización de envío. Hoy los eventos se consultan con `Store.notifications()` y el historial; no hay despachador externo activo.
+
+## Vista previa del catálogo
+
+```sh
+python3 scripts/toteat_catalog_preview.py
+```
+
+El usuario ya obtuvo `ok=true` con `data` de 869 elementos. Se confirmó el esquema del primer registro; no se validaron automáticamente todos los elementos ni el catálogo para importar. Esta herramienta recorre cada fila de una nueva respuesta obtenida por el usuario.
+
+1. Ingresa restaurante/local/usuario API y token oculto; escribe `CONSULTAR` para una única lectura `products?activeProducts=true`.
+2. Revisa la tabla de nombres e IDs reales de categorías. Solo se proponen coincidencias completas de «Tortas enteras» y «Dulces enteros», normalizando mayúsculas y espacios. No se usan substrings ni IDs inventados.
+3. Elige números de esa tabla, separados por coma. Si un nombre corresponde a varios IDs, se mantienen separados y el usuario elige. Un ID con nombres incompatibles se excluye. Si falta una categoría no se sustituye por otra.
+4. Escribe `VER` para mostrar los productos de la selección en tu terminal. Puedes cancelar antes de consultar o antes de mostrarlos.
+
+| Campo observado | Uso de esta vista previa | Pendiente |
+| --- | --- | --- |
+| `ok` boolean y `data` array | Requiere exactamente true/lista | No acredita importación lista para producción |
+| `category`, `categoryId` strings | Agrupar por ID y revisar etiqueta completa | Verificar IDs concretos mediante selección local; no persistirlos aún |
+| `id` string | Identidad provisional y deduplicación de esta respuesta | Estabilidad entre consultas/locales pendiente |
+| `idToteat` number | Mostrar referencia recibida | No se supone unicidad global ni equivalencia con SKU |
+| `localCode`, `name` strings | Mostrar código/nombre y detectar porciones explícitas | Clasificación comercial final requiere revisión |
+| `isModifier` boolean | true se excluye; tipo desconocido también | Sin importar registros de modificadores |
+| `modifiers` array | Mostrar cantidad de opciones del producto, sin expandirlas | Opciones reales y su mapeo quedan pendientes |
+| `price`, `referencePrice`, `description`, `images` | No se muestran ni guardan | Fuera de alcance de esta previsualización |
+
+Los duplicados con el mismo `id` y payload idéntico se cuentan una vez. Un mismo `id` con registros distintos se pone en revisión y no se elige arbitrariamente una versión. El informe distingue exclusiones globales y detalles de excluidos dentro de las categorías seleccionadas; no enumera productos del resto de la carta.
+
+Se excluyen nombres/códigos con trozo, porción, slice o rebanada. Un formato individual queda en revisión. «20 porciones» puede describir rendimiento de un entero dentro de una categoría autorizada: no se convierte en inventario de porciones ni en tamaño/receta confirmado. La preselección no demuestra stock, receta ni disponibilidad.
+
+Todos los datos reales permanecen en memoria y la salida local, sin exportación, archivos, base demo ni GitHub. Los mensajes libres de `msg` no se imprimen. Si una respuesta refleja el token en la proyección, se bloquea su visualización. El servicio no amplía permisos ni mantiene acceso después de cerrar. Las pruebas usan únicamente productos e IDs ficticios.
