@@ -22,7 +22,7 @@ Ovejita permanece separado. El exportador corre como su usuario, consulta SQLite
 
 Para las fotos nuevas, el hook de archivo se añade al flujo del bot luego de probar una copia aislada. Conserva la imagen por SHA-256 y la selección confirmada; no altera la validación, mensajes, registro de pagos ni credenciales. Una falla de archivo no impide al bot revisar el comprobante. El panel antiguo solo se retira tras verificar que revisiones, seguimiento y cierres estén disponibles en el ERP; conservar código/configuración para reversión.
 
-Respaldos: timer diario de SQLite y boletas. Verificar restauración a carpeta nueva. Sigue pendiente configurar destino externo cifrado y política de retención. El timer `oveja-erp-evidence-backup` conserva fotos y selección exacta en `/var/backups/oveja-erp-evidence`, con objetos por SHA-256 y manifiestos privados. La proyección se reconstruye desde SQLite y ese archivo; nunca publicar estas copias.
+Respaldos: timer diario de SQLite y boletas. Verificar restauración a carpeta nueva. Sigue pendiente configurar destino externo cifrado y política de retención. El timer `oveja-erp-evidence-backup` conserva fotos y selección exacta en `/var/backups/oveja-erp-evidence`, con objetos por SHA-256 y manifiestos privados; también respalda SQLite de Ovejita bajo `databases/`, incluidas las resoluciones del seguimiento. La proyección se reconstruye desde SQLite y ese archivo; nunca publicar estas copias.
 
 Cambiar dominio: crear DNS, ajustar `OVEJA_PUBLIC_ORIGIN` y bloque Caddy, validar y recargar. Los datos no dependen del dominio.
 

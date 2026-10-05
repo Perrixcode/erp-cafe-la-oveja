@@ -4,6 +4,7 @@ from contextlib import closing
 import csv
 from io import BytesIO, StringIO
 import json
+import hashlib
 import os
 from pathlib import Path
 import sqlite3
@@ -21,6 +22,7 @@ from erp.transfers import read_transfers, export_csv
 from erp.wsgi import create_app
 from integrations.ovejita_followup import FollowupError, prepare, read_histories, resolve
 from scripts.bot_followup_service import make_service
+from scripts.backup_bot_database import backup_database
 from scripts.export_bot_transfers import export_snapshot
 
 
@@ -88,6 +90,18 @@ class TransferFollowupTests(unittest.TestCase):
             with self.assertRaises(FollowupError):resolve(self.db,dict(self.command(),**change))
         with self.assertRaises(FollowupError):resolve(self.db,self.command(rid=2))
         self.assertEqual(read_histories(self.db,[1])[0]['history'],[])
+
+    def test_online_bot_backup_restores_shared_audit_and_idempotency(self):
+        payload=self.command();resolve(self.db,payload)
+        before=self.db.read_bytes()
+        directory=backup_database(self.db,self.root/'backups')
+        manifest=json.loads((directory/'manifest.json').read_text());copy=directory/manifest['file']
+        self.assertEqual(self.db.read_bytes(),before)
+        self.assertEqual(hashlib.sha256(copy.read_bytes()).hexdigest(),manifest['sha256'])
+        self.assertEqual(copy.stat().st_mode&0o777,0o600)
+        self.assertEqual(read_histories(copy,[1]),read_histories(self.db,[1]))
+        self.assertTrue(resolve(copy,payload)['repeated'])
+        self.assertEqual(read_histories(self.db,[1])[0]['followup_version'],1)
 
     def test_bridge_read_overlay_does_not_wait_for_snapshot_and_survives_restart(self):
         path=self.start_bridge();payload=self.command()

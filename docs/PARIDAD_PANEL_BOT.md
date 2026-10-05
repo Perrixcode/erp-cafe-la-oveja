@@ -24,6 +24,8 @@ Se conserva `resoluciones` porque `cierres.py` y `monitor.py` ya usan su última
 
 Las consultas combinan la copia privada con el historial actual del puente; no necesitan esperar el próximo minuto de proyección. Si el puente no está disponible, la información conservada sigue visible, el cambio no se confirma y la exportación conectada se bloquea hasta recuperarse. La UI permite reintentar la misma operación después de una falla de red.
 
+El timer privado diario también respalda la base SQLite de Ovejita, incluidas las resoluciones y su idempotencia, junto con las fotos/selecciones. Cada copia se verifica y tiene manifiesto SHA-256.
+
 Cada exportación registra en `transfer_exports` usuario, fecha, filtros, cantidad de filas y SHA-256. No se envía el CSV ni se cambia el resultado de ningún comprobante. Los resúmenes de proveedores para WhatsApp pertenecen a otro flujo futuro.
 
 ## Verificación y reversión
