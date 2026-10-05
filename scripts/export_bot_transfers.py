@@ -36,6 +36,7 @@ def export_snapshot(database,destination,names=None,evidence_root=None):
     rows=[]
     for value in values:
         row=dict(value);row['cajera']=names.get(row.pop('remitente'),'Sin identificar (histórico)')
+        if row['cajera']=='Esteban (dueño)':row['cajera']='Esteban (socio)'
         fingerprint=row.pop('huella');row['photo']=None;row['selected_sale']=None
         if isinstance(fingerprint,str) and len(fingerprint)==64 and all(c in '0123456789abcdef' for c in fingerprint):
             for extension,kind in [('jpg','image/jpeg'),('png','image/png'),('webp','image/webp')]:
