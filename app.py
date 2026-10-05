@@ -133,6 +133,12 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
             if path.startswith('/api/delivery/'):
                 from erp import delivery_finance
                 account=partners.require(self.headers.get('Cookie'))
+                if self.command=='GET' and path in ('/api/delivery/chat','/api/delivery/chat/evidence'):
+                    from erp import delivery_chat
+                    query=parse_qs(parsed.query)
+                    if path.endswith('/evidence'):
+                        return self.send(200,delivery_chat.evidence(store,query.get('source',[None])[0],query.get('record',[None])[0],query.get('incident',[None])[0]))
+                    return self.send(200,delivery_chat.view(store,query.get('month',[None])[0]))
                 if self.command=='GET' and path=='/api/delivery/fees':
                     value=delivery_finance.view(store,parse_qs(parsed.query).get('month',[None])[0])
                     reader=read_inbox(reader_path,False)
@@ -223,7 +229,7 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                 if match:
                     if store.get(int(match[1])).get('scheduling_status')=='draft':partners.require(self.headers.get('Cookie'))
                     return self.send(200, store.history(int(match[1])))
-                assets = {"/delivery.js": ("delivery.js", "text/javascript"), "/theme.css": ("theme.css", "text/css"), "/fonts/NotoSans.ttf": ("fonts/NotoSans.ttf", "font/ttf"),"/home.js": ("home.js", "text/javascript"),"/transfers.js": ("transfers.js", "text/javascript"),"/reception.js": ("reception.js", "text/javascript"),"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/notifications.js": ("notifications.js", "text/javascript"), "/styles.css": ("styles.css", "text/css")}
+                assets = {"/delivery-chat.js": ("delivery-chat.js", "text/javascript"), "/delivery.js": ("delivery.js", "text/javascript"), "/theme.css": ("theme.css", "text/css"), "/fonts/NotoSans.ttf": ("fonts/NotoSans.ttf", "font/ttf"),"/home.js": ("home.js", "text/javascript"),"/transfers.js": ("transfers.js", "text/javascript"),"/reception.js": ("reception.js", "text/javascript"),"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/notifications.js": ("notifications.js", "text/javascript"), "/styles.css": ("styles.css", "text/css")}
                 if path in assets:
                     name, kind = assets[path]
                     return self.send(200, (ROOT / "static" / name).read_bytes(), kind + "; charset=utf-8")

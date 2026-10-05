@@ -209,3 +209,21 @@ CREATE TABLE IF NOT EXISTS delivery_finance_history (
 CREATE TABLE IF NOT EXISTS delivery_sync_requests (
     id INTEGER PRIMARY KEY, actor TEXT NOT NULL, occurred_at TEXT NOT NULL, kind TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS delivery_chat_batches (
+    source_sha256 TEXT PRIMARY KEY, month TEXT NOT NULL UNIQUE,
+    package_sha256 TEXT NOT NULL, library_file_id TEXT NOT NULL,
+    source_library_file_id TEXT NOT NULL, manifest_json TEXT NOT NULL,
+    summary_json TEXT NOT NULL, imported_at TEXT NOT NULL, actor TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS delivery_chat_records (
+    source_sha256 TEXT NOT NULL REFERENCES delivery_chat_batches(source_sha256),
+    record_id TEXT NOT NULL, day TEXT NOT NULL, driver TEXT, amount INTEGER,
+    analysis_status TEXT NOT NULL, payload_json TEXT NOT NULL,
+    PRIMARY KEY(source_sha256,record_id)
+);
+CREATE TABLE IF NOT EXISTS delivery_chat_messages (
+    source_sha256 TEXT NOT NULL REFERENCES delivery_chat_batches(source_sha256),
+    message_ordinal INTEGER NOT NULL, payload_json TEXT NOT NULL,
+    PRIMARY KEY(source_sha256,message_ordinal)
+);

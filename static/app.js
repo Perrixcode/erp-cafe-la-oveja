@@ -9,7 +9,7 @@ const modules={
   documents:{name:'Documentos y procedimientos',icon:'▤',sections:['Formatos','Checklists','Reglamento interno','Protocolos','Manuales','Control de versiones','Constancias de lectura']},
   suppliers:{name:'Gestión de proveedores',icon:'▧',sections:['Proveedores','Facturas','Pagos','Programación semanal de pagos']},
   cakes:{name:'Pedidos de tortas',icon:'▦',sections:[]},
-  delivery:{name:'Despacho y reparto',icon:'↗',sections:['Montos diarios','Asignación de pedidos','Seguimiento GPS','Tarifas de reparto','Recaudación por cliente','Liquidación de repartos','Repartidores y zonas']},
+  delivery:{name:'Despacho y reparto',icon:'↗',sections:['Montos diarios','Registro de repartos','Asignación de pedidos','Seguimiento GPS','Tarifas de reparto','Recaudación por cliente','Liquidación de repartos','Repartidores y zonas']},
   shifts:{name:'Planificación de turnos',icon:'◷',sections:['Calendario de turnos','Asignación de equipo','Horas planificadas','Cambios y ausencias']},
   attendance:{name:'Control de asistencia',icon:'◴',sections:['Integración GeoVictoria','Marcaciones','Horas trabajadas','Diferencias y revisión']},
   transfers:{name:'Conciliación de transferencias',icon:'⇄',sections:['Transferencias del local','Cierres diarios','Estado del bot','Conciliación','Comprobantes','Historial']},
@@ -61,7 +61,7 @@ function actor() {
   return state.user.username;
 }
 function lockAccess(message='Ingresa con tu cuenta para continuar.') {
-  window.OvejaFees?.reset();
+  window.OvejaFees?.reset();window.OvejaChat?.reset();
   authGeneration++;state.request++;state.panelRequest++;
   state.user=null;state.partner=null;state.board=null;state.detail=null;state.editing=null;
   state.transition=null;state.sosContext=null;state.sosReview=null;state.commentDisclosure.clear();
@@ -69,7 +69,7 @@ function lockAccess(message='Ingresa con tu cuenta para continuar.') {
   document.body.classList.add('auth-locked');
   $('#access-message').textContent=message;
   $('#modal').close();$('#modal-content').replaceChildren();
-  for(const id of ['orders','summary','alerts','recipes','analytics','catalog-products','toteat-orders','stock-rows','production-totals','notification-list','attention-list','attention-counts','backup-state','reader-warning','account-name','account-role','partner-session-state','tests-in-period','transfer-results','home-workspace','delivery-results','delivery-sync-note']) $('#'+id)?.replaceChildren();
+  for(const id of ['orders','summary','alerts','recipes','analytics','catalog-products','toteat-orders','stock-rows','production-totals','notification-list','attention-list','attention-counts','backup-state','reader-warning','account-name','account-role','partner-session-state','tests-in-period','transfer-results','home-workspace','delivery-results','delivery-sync-note','chat-results']) $('#'+id)?.replaceChildren();
   $('#toast').classList.add('hidden');
   $('#access-form').reset();
 }
@@ -130,6 +130,8 @@ async function loadBoard() {
 }
 
 function renderModules() {
+  const showChat=state.module==='delivery'&&state.moduleSection==='Registro de repartos';
+  if(!showChat)window.OvejaChat?.leave();
   const showFees=state.module==='delivery'&&['','Montos diarios','Tarifas de reparto'].includes(state.moduleSection);
   if(!showFees)window.OvejaFees?.leave();
   const module=modules[state.module];
@@ -142,7 +144,7 @@ function renderModules() {
   $('#breadcrumb-module').textContent=module.name;
   $('#home-workspace').classList.add('hidden');
   $('#transfer-workspace').classList.add('hidden');
-  $('#delivery-workspace').classList.add('hidden');
+  $('#delivery-workspace').classList.add('hidden');$('#delivery-chat-workspace').classList.add('hidden');
   $('#module-placeholder .module-empty').classList.remove('hidden');
   if(state.module==='cakes')return;
   if(state.module==='home'){renderHome();return;}
@@ -155,6 +157,11 @@ function renderModules() {
     $('#module-placeholder .module-empty').classList.add('hidden');$('#transfer-workspace').classList.remove('hidden');
     $('#module-placeholder .module-subtitle').textContent='Transferencias enviadas por caja al bot Ovejita · lectura y seguimiento.';
     loadTransfers();
+  }
+  if(showChat){
+    $('#module-placeholder .module-empty').classList.add('hidden');$('#delivery-chat-workspace').classList.remove('hidden');
+    $('#module-placeholder .module-subtitle').textContent='Registro provisional de repartos, evidencia e incidencias.';
+    window.OvejaChat?.enter();
   }
   if(showFees){
     $('#module-placeholder .module-empty').classList.add('hidden');$('#delivery-workspace').classList.remove('hidden');
@@ -175,7 +182,7 @@ function rememberView() {
   const params=new URLSearchParams({module:state.module,view:state.view,scope:state.scope,period:state.period,date:state.date});
   if(state.period==='custom')params.set('end',state.end);
   if(state.module!=='cakes' && state.moduleSection)params.set('section',state.moduleSection);
-  if(state.module==='delivery'&&window.OvejaFees?.month)params.set('month',window.OvejaFees.month);
+  if(state.module==='delivery'){const month=state.moduleSection==='Registro de repartos'?window.OvejaChat?.month:window.OvejaFees?.month;if(month)params.set('month',month);}
   if(localThemePreview)params.set('theme',localThemePreview);
   history.replaceState(null,'',`${location.pathname}?${params}`);
 }
