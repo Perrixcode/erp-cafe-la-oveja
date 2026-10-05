@@ -3,6 +3,7 @@
 from collections import defaultdict
 from datetime import date, timedelta
 from calendar import monthrange
+import re
 
 STATUSES = {
     "pendiente": "Pendiente de marcado",
@@ -97,35 +98,50 @@ def stock_summary(rows):
             "reserved": sum(row["reserved"] for row in result)}
 
 
+def whatsapp_product(flavor, size):
+    people = re.fullmatch(r"(\d+)\s*(?:personas?|pp)", size, flags=re.IGNORECASE)
+    label = f"{people[1]}PP" if people else size
+    return f"{flavor} *{label}*"
+
+
 def whatsapp(orders, start, end, stock=None):
-    # El texto es local: copiarlo nunca abre ni envía WhatsApp.
-    lines = ["DATOS FICTICIOS · PRUEBA LOCAL" if all(order.get('is_demo',True) for order in orders) else "OVEJA · ENCARGOS", "PRODUCTOS POR MARCAR"]
-    if start != end:
-        lines.append(f"Del {human_day(start)} ({start}) al {human_day(end)} ({end}), inclusive")
-    else:
-        lines.append(human_day(start).capitalize())
-    last_day = None
-    pending = [(order, item) for order, item in flatten(orders) if item["status"] in TO_MARK]
-    for order, item in pending:
-        day, hour = order["pickup_at"].split("T")
-        if start != end and day != last_day:
-            lines.extend(["", human_day(day).capitalize()])
-            last_day = day
-        destination = "Local" if order["fulfillment"] == "retiro" else "Despacho"
-        lines.append(f"{item['quantity']} × {item['flavor']} {item['size']} · {order['customer']} · {hour} · {destination}")
-    if not pending:
-        lines.append("Sin productos pendientes de marcar.")
-    lines.extend(["", "RESUMEN ENCARGADAS", "Pendientes + solicitadas + marcadas; excluye entregadas y canceladas."])
-    for row in summarize(orders)["rows"]:
-        lines.append(f"{row['quantity']} × {row['flavor']} {row['size']}")
-    if not summarize(orders)["rows"]:
+    # Formato de copia solamente: no envía mensajes ni cambia stock o pedidos.
+    first, last = date.fromisoformat(start), date.fromisoformat(end)
+    lines = ["PRODUCTOS POR MARCAR;", f"SEMANA: {first:%d/%m} - {last:%d/%m}"]
+    selected = sorted((order for order in orders if start <= order["pickup_at"].split("T")[0] <= end),
+                      key=lambda order: order["pickup_at"])
+    pending = defaultdict(list)
+    summary = {}  # Orden de primera aparición en el período, sin cambiar summarize().
+    channels = {"Instagram": "IG", "Presencial": "Local", "Web/Mercat": "Web"}
+    for order, item in flatten(selected):
+        key = (item["flavor"], item["size"])
+        if item["status"] in OUTSTANDING:
+            summary[key] = summary.get(key, 0) + item["quantity"]
+        if item["status"] in TO_MARK:
+            day, hour = order["pickup_at"].split("T")
+            product = whatsapp_product(*key)
+            channel = channels.get(order["channel"], order["channel"])
+            line = f"{product} - {order['customer']} - {hour} hrs - {channel}"
+            # Una línea por torta conserva cantidades sin agregar un formato ajeno.
+            pending[day].extend([line] * item["quantity"])
+    day = first
+    weekdays = ("LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO", "DOMINGO")
+    while day <= last:
+        lines.extend(["", f"*{weekdays[day.weekday()]} {day:%d/%m}*", ""])
+        lines.extend(pending[day.isoformat()] or ["“”"])
+        day += timedelta(days=1)
+    lines.extend(["", "RESUMEN ENCARGADAS", ""])
+    lines.extend(f"{whatsapp_product(*key)}: {quantity}" for key, quantity in summary.items())
+    if not summary:
         lines.append("Sin encargadas pendientes de entrega.")
-    lines.extend(["", "STOCK DISPONIBLE · CONTEO ACTUAL, INDEPENDIENTE DEL PERÍODO"])
-    if not stock or not stock["rows"]:
+    lines.extend(["", "STOCK DISPONIBLE:", ""])
+    rows = (stock or {}).get("rows", [])
+    if not rows:
         lines.append("Desconocido · no se proporcionó stock físico.")
-    for row in (stock or {}).get("rows", []):
-        physical = "Desconocido" if row["physical"] is None else str(row["physical"])
+    positions = {key: index for index, key in enumerate(summary)}
+    for row in sorted(rows, key=lambda row: positions.get((row["flavor"], row["size"]), len(positions))):
         available = "Desconocido" if row["available"] is None else str(row["available"])
-        lines.append(f"{row['flavor']} {row['size']} · físico: {physical} · ** reserva vitrina: {row['reserved']} · venta entera: {available}")
-    lines.extend(["", "** = tortas ENTERAS reservadas manualmente para trozar y mantener vitrina.", "Disponibles = físico menos reserva vitrina. No se descuentan encargos otra vez.", "Solo sabores registrados; sin conteo, disponibilidad desconocida."])
+        reserved = "**" if row["reserved"] > 0 else ""
+        lines.append(f"{whatsapp_product(row['flavor'], row['size'])}: {available}{reserved}")
+    lines.extend(["", "** = Reservada para trozo"])
     return "\n".join(lines)

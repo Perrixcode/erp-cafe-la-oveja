@@ -120,8 +120,8 @@ class BusinessTests(unittest.TestCase):
         order = self.store.create(sample(),'Demo')
         stock = stock_summary([{'flavor':'Frambuesa','size':'20 personas','physical':5,'reserved':2}])
         text = whatsapp([order],'2026-10-05','2026-10-05',stock)
-        self.assertIn('** reserva vitrina: 2',text)
-        self.assertIn('venta entera: 3',text)
+        self.assertIn('Frambuesa *20PP*: 3**',text)
+        self.assertIn('** = Reservada para trozo',text)
         self.assertNotIn('** = trozos',text)
         self.assertEqual(summarize([order])['outstanding'],1)
 
@@ -130,7 +130,7 @@ class BusinessTests(unittest.TestCase):
         for status in ["marcado_solicitado", "marcado"]:
             order = self.store.transition(order["id"],order["items"][0]["id"],status,"Demo","Prueba",order["version"])
         text = whatsapp([order], "2026-10-05", "2026-10-05")
-        self.assertIn("Sin productos pendientes de marcar.", text)
+        self.assertIn("*LUNES 05/10*\n\n“”", text)
         self.assertEqual(summarize([order])["outstanding"], 1)
 
     def test_persistence_reopen(self):
