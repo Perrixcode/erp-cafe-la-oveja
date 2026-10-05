@@ -5,6 +5,7 @@ Description=Ovejita transfer read projection for ERP
 Type=oneshot
 User=cafeteria
 Group=oveja-erp
+SupplementaryGroups=cafeteria
 WorkingDirectory=/opt/oveja-erp/app
 ExecStart=/usr/bin/python3 scripts/export_bot_transfers.py --database /var/lib/cafeteria/whatsapp.sqlite3 --names-config /etc/cafeteria/panel_privado.json --destination /var/lib/oveja-erp-import/transferencias.json
 UMask=0027

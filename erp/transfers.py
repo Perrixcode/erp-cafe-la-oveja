@@ -36,7 +36,7 @@ def read_transfers(path,params):
     return {'configured':True,'updated_at':snapshot['updated_at'],'stale':(datetime.now(timezone.utc)-updated).total_seconds()>180,
             'start':str(start),'end':str(end),'page':page,'page_size':50,'total':len(rows),'rows':rows[(page-1)*50:page*50],
             'summary':{'compatible':sum(bool(r['compatible']) for r in rows),'pending':sum(r['pending'] for r in rows),'sales':len(unique),'expected_amount':sum(unique.values())},
-            'health':snapshot.get('health',[]),'alerts':snapshot.get('alerts',[]),'closures':snapshot.get('closures',[]),'source':'Ovejita','read_only':True}
+            'health':snapshot.get('health',[]),'alerts':snapshot.get('alerts',[]),'closures':snapshot.get('closures',[]),'uncertain_messages':snapshot.get('uncertain_messages',0),'source':'Ovejita','read_only':True}
 
 
 def read_photo(snapshot_path,revision_id):

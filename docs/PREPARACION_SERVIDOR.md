@@ -22,6 +22,19 @@ Ovejita permanece separado. El exportador corre como su usuario, consulta SQLite
 
 Para las fotos nuevas, el hook de archivo se añade al flujo del bot luego de probar una copia aislada. Conserva la imagen por SHA-256 y la selección confirmada; no altera la validación, mensajes, registro de pagos ni credenciales. Una falla de archivo no impide al bot revisar el comprobante. El panel antiguo solo se retira tras verificar que revisiones, seguimiento y cierres estén disponibles en el ERP; conservar código/configuración para reversión.
 
-Respaldos: timer diario de SQLite y boletas. Verificar restauración a carpeta nueva. Sigue pendiente configurar destino externo cifrado y política de retención. El timer `oveja-erp-evidence-backup` conserva fotos y selección exacta en `/var/backups/cafeteria/erp-evidence`, con objetos por SHA-256 y manifiestos privados. La proyección se reconstruye desde SQLite y ese archivo; nunca publicar estas copias.
+Respaldos: timer diario de SQLite y boletas. Verificar restauración a carpeta nueva. Sigue pendiente configurar destino externo cifrado y política de retención. El timer `oveja-erp-evidence-backup` conserva fotos y selección exacta en `/var/backups/oveja-erp-evidence`, con objetos por SHA-256 y manifiestos privados. La proyección se reconstruye desde SQLite y ese archivo; nunca publicar estas copias.
 
 Cambiar dominio: crear DNS, ajustar `OVEJA_PUBLIC_ORIGIN` y bloque Caddy, validar y recargar. Los datos no dependen del dominio.
+
+
+## Estado de despliegue y reversión
+
+ERP activo en https://erp.loxby.cl con diseño A. El lector local está deshabilitado y localhost solo redirige al HTTPS. Los datos operativos permanecen en `/var/lib/oveja-erp`; nunca volver a habilitar dos escritores sin conciliación.
+
+El código está versionado en `/opt/oveja-erp/releases/` y `app` apunta a la versión activa. Ante un fallo de código, detener el lector, apuntar `app` a la versión anterior verificada y reiniciar solo los servicios ERP. Conservar la base de producción actual: restaurar una copia antigua podría perder movimientos posteriores.
+
+Caddy conserva un respaldo `Caddyfile.before-oveja-erp-*` en `/etc/caddy/`. Validar la configuración antes de recargar. Los servicios webhook, worker y monitor del bot no dependen del ERP.
+
+El archivo original del flujo de Ovejita y una copia SQLite íntegra se conservan en `/var/backups/cafeteria/before-erp-evidence-*`. Para revertir el hook de fotografías, restaurar solo su archivo Python y reiniciar `cafeteria-worker` cuando no esté procesando/enviando. No restaurar la base antigua sobre revisiones nuevas. Las fotos archivadas se preservan.
+
+El panel previo se conserva hasta reemplazar sus acciones de seguimiento/exportación y verificar la aceptación funcional. La lectura, fotos nuevas y descarga del ERP ya usan su propia interfaz y sus permisos.

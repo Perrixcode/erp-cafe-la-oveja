@@ -1,3 +1,18 @@
+# Entrega desplegada · 2026-10-05 UTC
+
+- **HTTPS activo:** https://erp.loxby.cl. Diseño A. Acceso con las cuentas existentes; perfiles y datos privados protegidos por servidor. Localhost solo redirige al servidor, sin escribir datos.
+- **Migración completada y verificada:** SQLite, cuentas con sal/hash, historial y boleta. Respaldo privado anterior al corte; sin duplicados de fuente. El lector del Mac está deshabilitado; lector Linux activo, GET de comandas/ventas/anulaciones conocidas, sin escritura a Toteat.
+- **Recepción:** comentario abierto por defecto y cierre manual respetado en la sesión; Forzar agendamiento solo socios con motivo; venta inmediata presencial solo con venta cerrada/saldada recibida y comentario vacío/incompleto, confirmación e historial. Descuento saldado no se presenta como dinero recibido. Anular en ERP requiere confirmación; se conserva el historial. Cuatro pestañas con los mismos registros, sin duplicación.
+- **Bot en producción:** proyección privada de revisiones, comanda elegida, cajera/monto, verificaciones, historial, cierres, estado del envío y salud. Archivo de futuras fotos/selecciones activado, con respaldo del código y SQLite de Ovejita y worker activo. Sin imágenes históricas inventadas. Foto y boleta con vista previa y descarga en el mismo diálogo.
+- **Verificación:** 203 pruebas Python locales; 201 de la versión previa aprobadas en Ubuntu y suite final pendiente al escribir este checkpoint. QA con fixtures 1180/320 de permisos, confirmaciones/cancelación, doble clic, cuatro pestañas/recarga, comentario, boleta/foto y venta exacta. Login anónimo del HTTPS real verificado en Chrome dedicado 1180/320, sin desbordes ni errores JS. Evidencia privada: `private/login-server-*.png`; servidor `/var/lib/oveja-erp/private/deployment-evidence.json`.
+- **Respaldos activos:** ERP SQLite/boletas y archivo incremental de fotos/selecciones. Todos los servicios originales de Ovejita continúan activos. No se copiaron credenciales a GitHub ni se crearon cuentas reales nuevas.
+- **Pendiente concreto WEB/Mercat:** falta payload/contrato verificable de ASAP, programación y pago de una mesa abierta web. Los casos identificados web quedan en revisión, sin declarar entrega por pago, sin usar creación/ETA como fecha solicitada y sin autoagendar por datos de cliente. Conflictos entre modalidad y comentario requieren confirmación del socio. La muestra real disponible no traía esos campos. No afirmar integración web automática terminada.
+- **Panel anterior conservado:** información contrastada con la proyección; falta reemplazar sus acciones manuales de seguimiento y exportación CSV antes de retirarlo con paridad funcional. No se amplió el permiso de escritura a la base del bot, pues se pidió traer información.
+- **Límite de validación:** no se inició sesión real usando contraseñas desconocidas ni se creó una venta/transferencia ficticia en producción. Las comprobaciones de acciones UI usan fixtures; una nueva foto real del bot y la prueba de ingreso de la socia quedan para aceptación del usuario.
+- Módulos futuros explícitamente sin datos. Sin GPS, GeoVictoria, Power BI, compras/pagos ni otros pipelines conectados. Pendientes de operación: copia externa cifrada/retención y política de cuentas.
+
+## Registro histórico de preparación (no describe el estado actual)
+
 # Estado de la entrega actual · 4 octubre 2026
 
 Carpeta correcta: `/Users/estebaniturra/Documents/ChatGPT/ERP Oveja`. No se borró el origen ni se incorporaron archivos privados a Git.

@@ -86,6 +86,15 @@ class ServerIntegrationTests(unittest.TestCase):
         target.write_bytes(b'corrupt fixture')
         with self.assertRaises(ValueError):backup_evidence(source, destination)
 
+    def test_bot_projection_preserves_closure_send_state_and_uncertain_count(self):
+        db,_,_=self.bot_fixture()
+        with closing(sqlite3.connect(db)) as connection,connection:
+            connection.executescript("CREATE TABLE cierres_diarios(fecha TEXT,actualizado TEXT,informe TEXT); CREATE TABLE bot_salidas(mensaje_id TEXT,estado TEXT); INSERT INTO cierres_diarios VALUES('2026-10-04','2026-10-04T21:00:00+00:00','{}'); INSERT INTO bot_salidas VALUES('cierre:2026-10-04','enviada'); INSERT INTO bot_salidas VALUES('mensaje-ficticio','incierto');")
+        target=self.root/'out/transfers.json';export_snapshot(db,target)
+        result=read_transfers(target,dict(start='2026-10-01',end='2026-10-31'))
+        self.assertEqual(result['closures'][0]['send_status'],'enviada')
+        self.assertEqual(result['uncertain_messages'],1)
+
     def test_linux_reader_has_fixed_get_modes_scope_limits_and_no_credential_reflection(self):
         (self.root/'toteat').write_text(json.dumps(dict(xir='111',xil='1',xiu='222',xapitoken='FAKE-TEST-SECRET')))
         seen=[]

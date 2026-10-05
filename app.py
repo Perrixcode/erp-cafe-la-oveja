@@ -79,7 +79,8 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
-            self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+            frame_ancestors="'self'" if content_type.startswith('application/pdf') else "'none'"
+            self.send_header("Content-Security-Policy", f"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors {frame_ancestors}; form-action 'self'")
             self.end_headers()
             self.wfile.write(payload)
 

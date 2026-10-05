@@ -21,6 +21,12 @@ def export_snapshot(database,destination,names=None,evidence_root=None):
 
         tables={r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}
         closures=[{'date':r[0],'updated_at':r[1],'report':json.loads(r[2])} for r in db.execute('SELECT fecha,actualizado,informe FROM cierres_diarios ORDER BY fecha DESC LIMIT 366')] if 'cierres_diarios' in tables else []
+        uncertain=0
+        if 'bot_salidas' in tables:
+            uncertain=db.execute("SELECT COUNT(*) FROM bot_salidas WHERE estado='incierto'").fetchone()[0]
+            for closure in closures:
+                sent=db.execute('SELECT estado FROM bot_salidas WHERE mensaje_id=?',('cierre:'+closure['date'],)).fetchone()
+                closure['send_status']=sent[0] if sent else 'Sin envío'
         alerts=[dict(r) for r in db.execute('SELECT fecha,revision_id,tipo,detalle FROM alertas_operativas ORDER BY fecha DESC LIMIT 20')] if 'alertas_operativas' in tables else []
         health=[dict(r) for r in db.execute('SELECT componente,estado,detalle,fecha FROM salud ORDER BY componente')]
         histories={}
@@ -50,7 +56,7 @@ def export_snapshot(database,destination,names=None,evidence_root=None):
         row['estados']=json.loads(row['estados']);row['alertas']=json.loads(row['alertas'])
         row['history']=histories.get(row['id'],[])
         rows.append(row)
-    data={'version':1,'updated_at':datetime.now(timezone.utc).isoformat(),'rows':rows,'health':health,'closures':closures,'alerts':alerts}
+    data={'version':1,'updated_at':datetime.now(timezone.utc).isoformat(),'rows':rows,'health':health,'closures':closures,'alerts':alerts,'uncertain_messages':uncertain}
     destination.parent.mkdir(parents=True,exist_ok=True)
     descriptor,temporary=tempfile.mkstemp(prefix='.transfers-',dir=destination.parent)
     try:

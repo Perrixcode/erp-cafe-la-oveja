@@ -35,7 +35,7 @@ $('#custom-range').classList.toggle('hidden',state.period!=='custom');
 $('#previous').disabled=state.period==='custom'; $('#next').disabled=state.period==='custom';
 const paymentLabel = order => order.toteat_schedule ? (order.toteat_schedule.payment.state === 'discount_settled' ? 'Saldado con descuento' : 'Pago registrado en Toteat') : order.manual_scheduling ? (order.manual_scheduling.payment_status==='unpaid' ? (order.scheduling_status==='draft'?'Sin pago · pendiente de autorización':'Agendado sin pago') : 'Pago verificado por socio · registro manual') : 'Pago simulado confirmado';
 const scheduleWarnings = {telefono_pendiente:'Teléfono pendiente',telefono_por_revisar:'Revisar teléfono',fecha_pasada:'La fecha indicada ya pasó',anio_inferido:'Año inferido de la fecha de la venta'};
-const receiptLinks = order => !can('receipt') ? 'Disponible para socios y caja' : order.receipt?.status === 'verified' ? `<a class="button secondary" href="/api/orders/${order.id}/receipt" target="_blank" rel="noopener">Ver boleta PDF</a> <a class="button secondary" href="/api/orders/${order.id}/receipt?download=1" download>Descargar para enviar</a>` : 'Boleta aún no recibida';
+const receiptLinks = order => !can('receipt') ? 'Disponible para socios y caja' : order.receipt?.status === 'verified' ? `<button class="button secondary" data-action="receipt-preview" data-id="${order.id}">Ver boleta PDF</button> <a class="button secondary" href="/api/orders/${order.id}/receipt?download=1" download>Descargar para enviar</a>` : 'Boleta aún no recibida';
 const labels = {marcado_solicitado:'Marcado solicitado',pendiente:'Pendiente de marcado', solicitado:'Solicitado a producción (histórico)', marcado:'Marcado físico', entregado:'Entregado', cancelado:'Cancelado'};
 const timingLabels = {scheduled:'Programada',immediate:'Inmediata · entrega confirmada',unclassified:'Tipo de entrega por confirmar'};
 const next = {pendiente:'marcado_solicitado', marcado_solicitado:'marcado', marcado:'entregado'};
@@ -480,6 +480,10 @@ document.addEventListener('click', async event => {
   const action = button.dataset.action;
   if (state.saving) return;
   if(button.dataset.view){state.view=button.dataset.view;rememberView();renderOperations();}
+  if(action==='receipt-preview'&&can('receipt')){
+    const id=Number(button.dataset.id);
+    modal('Boleta adjunta','Vista previa del documento',`<iframe class="receipt-preview" src="/api/orders/${id}/receipt" title="Vista previa de boleta PDF"></iframe>`,`<button class="button secondary" data-action="detail" data-id="${id}">Volver al pedido</button><a class="button primary" href="/api/orders/${id}/receipt?download=1" download>Descargar boleta</a>`,'DOCUMENTO DEL PEDIDO');
+  }
   if(action==='view-tests'){state.scope='tests';state.view='agenda';$('#record-scope').value='tests';await loadBoard();}
   if (action === 'close') { state.panelRequest++; $('#modal').close(); }
   if (action === 'detail') await showDetail(button.dataset.id);
