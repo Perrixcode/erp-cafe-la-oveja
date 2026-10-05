@@ -659,7 +659,7 @@ class Store:
 
     def update_stock(self, data, actor, reason, version):
         if not isinstance(data, dict):
-            raise DomainError("Se espera un conteo ficticio.")
+            raise DomainError("Se espera un conteo de stock.")
         flavor = clean_text(data.get("flavor"), "Sabor", maximum=80)
         size = clean_text(data.get("size"), "Tamaño", maximum=80)
         if not any((p['flavor'],p['size']) == (flavor,size) for p in self.catalog()):

@@ -62,14 +62,15 @@ class WhatsAppFormatTests(unittest.TestCase):
         self.assertEqual(whatsapp(orders,'2026-09-28','2026-10-02',stock),EXPECTED)
         self.assertEqual((orders,stock),before)
 
-    def test_dates_are_dynamic_weekends_and_all_empty_days_included(self):
+    def test_dates_are_dynamic_and_only_workdays_are_included(self):
         start,end=date_range('2027-01-02','week')
         text=whatsapp([],start,end)
         self.assertEqual((start,end),('2026-12-28','2027-01-03'))
-        expected=['*LUNES 28/12*','*MARTES 29/12*','*MIERCOLES 30/12*','*JUEVES 31/12*','*VIERNES 01/01*','*SABADO 02/01*','*DOMINGO 03/01*']
+        expected=['*LUNES 28/12*','*MARTES 29/12*','*MIERCOLES 30/12*','*JUEVES 31/12*','*VIERNES 01/01*']
         self.assertEqual([line for line in text.splitlines() if line.startswith('*') and not line.startswith('**')],expected)
-        self.assertEqual(text.count('“”'),7)
-        self.assertTrue(text.startswith('PRODUCTOS POR MARCAR;\nSEMANA: 28/12 - 03/01\n'))
+        self.assertEqual(text.count('“”'),5)
+        self.assertNotIn('SABADO',text);self.assertNotIn('DOMINGO',text)
+        self.assertTrue(text.startswith('PRODUCTOS POR MARCAR;\nSEMANA: 28/12 - 01/01\n'))
 
     def test_quantities_statuses_channel_not_fulfillment_and_summary_preserved(self):
         rows=[order('Pendiente ficticio','2026-10-05','Chocolate','10 personas',quantity=2,channel='Instagram'),
@@ -104,10 +105,22 @@ class WhatsAppFormatTests(unittest.TestCase):
         self.assertIn('Desconocido · no se proporcionó stock físico.',text)
         self.assertNotIn('PP',text)
 
-    def test_time_sorting_and_month_range_keep_every_calendar_day(self):
+    def test_time_sorting_and_month_range_keep_only_workdays(self):
         rows=[order('Tarde ficticio','2026-11-02','Chocolate','20 personas','19:00'),
               order('Temprano ficticio','2026-11-02','Chocolate','20 personas','10:00')]
         start,end=date_range('2026-11-15','month');text=whatsapp(rows,start,end)
-        self.assertEqual(text.count('“”'),29)
+        self.assertEqual(text.count('“”'),20)
         self.assertLess(text.index('Temprano ficticio'),text.index('Tarde ficticio'))
-        self.assertIn('*DOMINGO 01/11*',text);self.assertIn('*LUNES 30/11*',text)
+        self.assertNotIn('*DOMINGO 01/11*',text);self.assertIn('*LUNES 30/11*',text)
+        self.assertIn('SEMANA: 02/11 - 30/11',text)
+
+    def test_weekend_orders_are_preserved_but_excluded_from_copy_and_copy_summary(self):
+        orders=[order('Sábado ficticio','2026-10-03','Solo sábado','20 personas'),
+                order('Domingo ficticio','2026-10-04','Solo domingo','10 personas'),
+                order('Viernes ficticio','2026-10-02','Viernes','10 personas')]
+        before=deepcopy(orders)
+        text=whatsapp(orders,'2026-09-28','2026-10-04')
+        self.assertIn('SEMANA: 28/09 - 02/10',text)
+        self.assertIn('Viernes *10PP*: 1',text)
+        self.assertNotIn('Solo sábado',text);self.assertNotIn('Solo domingo',text)
+        self.assertEqual(orders,before);self.assertEqual(summarize(orders)['outstanding'],3)

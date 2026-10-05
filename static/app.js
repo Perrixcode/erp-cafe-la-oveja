@@ -387,7 +387,7 @@ async function saveTransition(form, button) {
 }
 function selectFilter(filter) { state.filter = filter; document.querySelectorAll('[data-filter]').forEach(button => {button.classList.toggle('selected',button.dataset.filter === filter);button.setAttribute('aria-pressed',String(button.dataset.filter === filter));}); }
 function stockRows(stock) {
-  return stock.rows.map((row,index) => `<article class="stock-row"><div><strong>${escapeHTML(row.flavor)}</strong><small>${escapeHTML(row.size)}</small></div><div><small>Físico</small><strong>${row.physical ?? 'Desconocido'}</strong></div><div><small>** Reserva vitrina</small><strong>${row.reserved}</strong></div><div><small>Venta entera</small><strong>${row.available ?? 'Desconocido'}</strong></div><button class="text-button" data-action="stock-row" data-index="${index}">Editar conteo</button></article>`).join('') || '<p class="hint">Aún no hay conteos. Disponibilidad desconocida; no hay sincronización de inventario.</p>';
+  return stock.rows.map((row,index) => `<article class="stock-row"><div><strong>${escapeHTML(row.flavor)}</strong><small>${escapeHTML(row.size)}</small><small>Manual provisional${row.updated_at ? ` · ${escapeHTML(new Date(row.updated_at).toLocaleString('es-CL',{dateStyle:'short',timeStyle:'short',timeZone:'America/Santiago'}))}` : ''}</small></div><div><small>Físico</small><strong>${row.physical ?? 'Desconocido'}</strong></div><div><small>** Reserva vitrina</small><strong>${row.reserved}</strong></div><div><small>Venta entera</small><strong>${row.available ?? 'Desconocido'}</strong></div><button class="text-button" data-action="stock-row" data-index="${index}">Editar conteo</button></article>`).join('') || '<p class="hint">Aún no hay conteos. Disponibilidad desconocida; no hay sincronización de inventario.</p>';
 }
 function catalogChoices() {
   return [...state.board.catalog].sort((a,b) => Number(a.is_demo) - Number(b.is_demo)).map(p => [p.sku,`${p.is_demo ? 'Demo' : 'Catálogo local'} · ${p.flavor} · ${p.size}`]);
@@ -400,7 +400,7 @@ function renderCatalog() {
   $('#record-scope-wrap').classList.toggle('hidden',!localMode);
   document.body.classList.toggle('simulation-view',state.scope !== 'operations');
   $('#scope-notice').textContent=state.scope !== 'operations' ? 'VISTA DE PRUEBAS · estos pedidos e indicadores no pertenecen a la operación. Sin efecto en Toteat o stock.' : 'Las simulaciones no afectan los indicadores operativos ni el stock.';
-  $('#stock-edit').classList.toggle('hidden',localMode);
+  $('#stock-edit').classList.toggle('hidden',!can('stock') || state.scope!=='operations');
   $('.demo-tag').textContent = state.scope !== 'operations' ? 'PRUEBA' : localMode ? 'LOCAL' : 'DEMO';
   $('#analytics-caption').textContent = state.scope !== 'operations' ? 'INDICADORES EXCLUSIVOS DE PRUEBA' : localMode ? 'LECTURA DE LA OPERACIÓN · REGISTROS LOCALES' : 'LECTURA DE LA OPERACIÓN · DATOS FICTICIOS';
   $('#catalog-help').textContent = localMode ? 'Solo productos incorporados de Toteat. Sin conteo, la disponibilidad es desconocida; no hay conexión de inventario.' : 'La disponibilidad requiere un conteo local. Sin conteo no significa cero. Los ejemplos conservan sus referencias para mantener el historial.';
@@ -465,10 +465,31 @@ async function saveRecipe(form,button) {
   finally { state.saving = false; button.disabled = false; }
 }
 function showStockForm(row = null) {
-  state.stockEditing = row;
+  if(!can('stock') || state.scope!=='operations')return;
   const product = state.board.catalog.find(p => p.flavor === row?.flavor && p.size === row?.size) || state.board.catalog[0];
-  modal('Stock y reserva para vitrina', 'Conteo ficticio actual · decisión manual · no ajusta Toteat', `<form id="stock-form"><div id="form-error" class="error hidden" role="alert"></div><div class="form-grid">${row ? '' : selectField('Producto del conteo','stock_product',catalogChoices(),product.sku)}${field('Sabor','flavor',product.flavor,'text','required readonly')}${field('Tamaño','size',product.size,'text','required readonly')}${field('Físico entero (vacío = desconocido)','physical',row?.physical ?? '','number','min="0" max="999" step="1"')}${field('** Enteras reservadas para vitrina','reserved',row?.reserved ?? 0,'number','required min="0" max="999" step="1"')}<label class="field full">Motivo<input name="reason" required maxlength="500" placeholder="Ej.: conteo ficticio, reservar 2 para vitrina"></label></div><p class="hint">Tú eliges 0, 1 o X enteras para trozar. No existe una regla automática de última torta. Disponibles = físico − reserva; nunca se restan encargos aquí. Sin físico conocido, la disponibilidad sigue desconocida.</p></form>`, '<button class="button secondary" data-action="close">Cancelar</button><button class="button primary" type="submit" form="stock-form">Guardar conteo demo</button>','CONTEO Y RESERVA MANUAL');
+  if(!product){toast('Primero incorpora un producto entero al catálogo.');return;}
+  row ||= state.board.stock.rows.find(r=>r.flavor===product.flavor&&r.size===product.size) || null;
+  state.stockEditing = row;
+  modal('Ingresar stock físico', 'Manual provisional · no modifica el inventario de Toteat', `<form id="stock-form"><div id="form-error" class="error hidden" role="alert"></div><div class="form-grid">${selectField('Producto del catálogo','stock_product',catalogChoices(),product.sku)}${field('Sabor','flavor',product.flavor,'text','required readonly')}${field('Tamaño','size',product.size,'text','required readonly')}${field('Cantidad física entera (vacío = desconocido)','physical',row?.physical ?? '','number','min="0" max="999" step="1"')}${field('Enteras reservadas para trozar / vitrina','reserved',row?.reserved ?? 0,'number','required min="0" max="999" step="1"')}<div class="detail-field full"><small>Disponible para venta entera</small><output id="stock-available" aria-live="polite">Desconocido</output></div><label class="field full">Motivo del conteo<input name="reason" required maxlength="500" placeholder="Ej.: conteo físico de apertura"></label></div><p class="hint">Disponible = físico − reserva para trozar. No se descuentan pedidos nuevamente. Un campo físico vacío significa desconocido; 0 significa que no hay unidades. Tu cuenta, fecha y motivo quedan en el historial.</p></form>`, '<button class="button secondary" data-action="close">Cancelar</button><button class="button primary" type="submit" form="stock-form">Guardar conteo</button>','STOCK DE TORTAS · SOLO SOCIOS');
+  updateStockAvailable();
 }
+function selectStockProduct(sku){
+  const product=state.board.catalog.find(p=>p.sku===sku),form=$('#stock-form');if(!product||!form)return;
+  const row=state.board.stock.rows.find(r=>r.flavor===product.flavor&&r.size===product.size)||null;
+  state.stockEditing=row;
+  for(const key of ['flavor','size'])form.elements[key].value=product[key];
+  form.elements.physical.value=row?.physical??'';form.elements.reserved.value=row?.reserved??0;
+  updateStockAvailable();
+}
+function updateStockAvailable(){
+  const form=$('#stock-form');if(!form)return;
+  const physical=form.elements.physical,reserved=form.elements.reserved;
+  const amount=physical.value===''?null:Number(physical.value),held=Number(reserved.value);
+  reserved.max=amount===null?'999':String(amount);
+  reserved.setCustomValidity(amount!==null&&held>amount?'La reserva para trozar no puede superar el stock físico.':'');
+  $('#stock-available').textContent=amount===null?'Desconocido':Number.isInteger(amount)&&amount>=0&&Number.isInteger(held)&&held>=0&&held<=amount?String(amount-held):'Revisar cantidades';
+}
+document.addEventListener('input',event=>{if(event.target.closest('#stock-form')&&['physical','reserved'].includes(event.target.name))updateStockAvailable();});
 async function saveStock(form,button) {
   if (state.saving) return;
   state.saving = true; button.disabled = true;
@@ -481,7 +502,7 @@ async function saveStock(form,button) {
 }
 async function copyMessage() {
   const text = $('#whatsapp-text').value;
-  try { await navigator.clipboard.writeText(text); toast('Texto ficticio copiado. No se envió ningún mensaje.'); }
+  try { await navigator.clipboard.writeText(text); toast('Texto copiado. No se envió ningún mensaje.'); }
   catch { $('#whatsapp-text').focus(); $('#whatsapp-text').select(); toast('Seleccionado. Usa Copiar en tu dispositivo; no se envió ningún mensaje.'); }
 }
 
@@ -567,9 +588,9 @@ $('#apply-range').addEventListener('click',loadBoard);
 $('#modal').addEventListener('cancel', event => { if (state.saving) event.preventDefault(); else state.panelRequest++; });
 $('#stock-edit').addEventListener('click', () => showStockForm());
 $('#production-scope').addEventListener('change',event => {state.productionScope = event.target.value; if (state.board) renderOperations();});
-document.addEventListener('change',event => {if (event.target.name === 'delivery_timing') { syncTimingFields(); return; } if (event.target.name === 'stock_product') { const p = state.board.catalog.find(p => p.sku === event.target.value); $('#stock-form [name=flavor]').value = p.flavor; $('#stock-form [name=size]').value = p.size; return; } if (event.target.name !== 'sku') return; const row = event.target.closest('.form-item'); if (!row) return; const product = state.board.catalog.find(p => p.sku === event.target.value); $('[name=flavor]',row).value = product.flavor; $('[name=size]',row).value = product.size;});
+document.addEventListener('change',event => {if (event.target.name === 'delivery_timing') { syncTimingFields(); return; } if (event.target.name === 'stock_product') { selectStockProduct(event.target.value); return; } if (event.target.name !== 'sku') return; const row = event.target.closest('.form-item'); if (!row) return; const product = state.board.catalog.find(p => p.sku === event.target.value); $('[name=flavor]',row).value = product.flavor; $('[name=size]',row).value = product.size;});
 $('#search').addEventListener('input',event => {state.search = event.target.value; if (state.board) renderOrders();});
-$('#whatsapp').addEventListener('click',() => { if (!state.board) return; modal('Texto para WhatsApp','Incluye todo el período elegido. Los filtros de búsqueda y estado no alteran este resumen.',`<textarea id="whatsapp-text" class="message-preview" readonly aria-label="Mensaje ficticio para copiar">${escapeHTML(state.board.whatsapp)}</textarea><p class="hint">PRODUCTOS POR MARCAR: pendientes y solicitados. RESUMEN ENCARGADAS: también incluye marcados. Stock actual separado de los encargos. ** = enteras reservadas para trozar/vitrina, decididas manualmente.</p>`,'<button class="button secondary" data-action="close">Cerrar</button><button class="button primary" data-action="copy">Copiar texto</button>','PREVIA · NO ENVÍA MENSAJES'); });
+$('#whatsapp').addEventListener('click',() => { if (!state.board) return; modal('Texto para WhatsApp','Incluye lunes a viernes del período elegido. Los pedidos de fin de semana permanecen en el ERP.',`<textarea id="whatsapp-text" class="message-preview" readonly aria-label="Mensaje para copiar">${escapeHTML(state.board.whatsapp)}</textarea><p class="hint">PRODUCTOS POR MARCAR: pendientes y solicitados. RESUMEN ENCARGADAS: también incluye marcados. Stock actual separado de los encargos. ** = enteras reservadas para trozar/vitrina, decididas manualmente.</p>`,'<button class="button secondary" data-action="close">Cerrar</button><button class="button primary" data-action="copy">Copiar texto</button>','PREVIA · NO ENVÍA MENSAJES'); });
 $('#access-form').addEventListener('submit',loginAccess);
 $('#access-retry').addEventListener('click',startAccess);
 startAccess();
