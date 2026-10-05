@@ -112,6 +112,8 @@ def sales_cycle(inbox, root=ROOT, reader=read_helper, downloader=download_receip
                     continue
                 key = inbox.receive_sale(current,candidate,catalog)
                 row = transactions[(source_id,candidate['payment_id'])]
+                from erp.toteat_inbox import get_received
+                candidate=dict(candidate,source_channel=get_received(inbox.path,key).get('channel',''))
                 reception.observe_sale(store,current,row,candidate)
                 if counts[source_id] != 1:
                     raise ValueError('multiple_payments_require_review')
@@ -140,7 +142,7 @@ def sales_cycle(inbox, root=ROOT, reader=read_helper, downloader=download_receip
                 scheduled += 1
             except ValueError as error:
                 reason = str(error).split(':')[0]
-                allowed = {'source_cancelled','source_alert_requires_review','classified_immediate','manual_review_required','multiple_payments_require_review','comment_requires_review','payment_not_settled','refund_requires_review',
+                allowed = {'web_delivery_contract_requires_review','source_cancelled','source_alert_requires_review','classified_immediate','manual_review_required','multiple_payments_require_review','comment_requires_review','payment_not_settled','refund_requires_review',
                            'balance_requires_review','changed_order_already_in_progress','changed_product_lines_require_review',
                            'invalid_source_item','invalid_source_quantity','missing_source_items','receipt_order_mismatch','missing_order_comment','possible_sos_duplicate','sos_product_mismatch','sos_test_scope_mismatch'}
                 inbox.set_sales_state(key,{'status':'needs_review','reason':reason if reason in allowed else 'source_requires_review','observed_at':stamp()})

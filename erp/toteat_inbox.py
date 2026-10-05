@@ -45,11 +45,15 @@ def normalize(payload,scope,product_ids):
             item['productName']=text(line.get('productName'),160)
             item['comments']=[{'path':'$.document.line[].'+k,'text':text(line[k],None)} for k in ('comment','comments','notes','observations') if isinstance(line.get(k),str) and line[k].strip()]
             items.append(item)
-        result.append({'key':key,'order_id':order_id,'restaurant_id':restaurant,'local_id':local,
+        value={'key':key,'order_id':order_id,'restaurant_id':restaurant,'local_id':local,
                        'order_reference':text(row.get('orderReference'),160),'channel':text(row.get('channel'),160),
                        'vendor':text(row.get('vendorName'),160),'modified_at':text(row.get('modificationDate'),80),
                        'source_status':row.get('orderStatus'),'status_label':text(row.get('status'),80),
-                       'comments':comments,'items':items,'scheduling_status':'needs_review'})
+                       'comments':comments,'items':items,'scheduling_status':'needs_review'}
+        from erp.toteat_web import project
+        web=project(row)
+        if web is not None:value['web_order']=web
+        result.append(value)
     return result
 
 class Inbox:
@@ -151,6 +155,20 @@ class Inbox:
     def set_status(self,data):
         with closing(sqlite3.connect(self.path)) as db,db:
             db.execute('INSERT INTO reader_status VALUES(1,?) ON CONFLICT(id) DO UPDATE SET payload_json=excluded.payload_json',(canonical(data),))
+    def receive_detail(self,payload,scope,product_ids):
+        """Enriquece una identidad ya recibida; no sustituye el estado global del listado."""
+        if not isinstance(payload,dict) or payload.get('ok') is not True or not isinstance(payload.get('data'),dict):raise ValueError('invalid_detail')
+        rows=normalize({'ok':True,'data':[payload['data']]},scope,product_ids)
+        if len(rows)!=1:raise ValueError('matching_detail_required')
+        value=rows[0];encoded=canonical(value);digest=hashlib.sha256(encoded.encode()).hexdigest();observed=stamp()
+        with closing(sqlite3.connect(self.path)) as db,db:
+            db.execute('BEGIN IMMEDIATE')
+            before=db.execute('SELECT digest FROM received_orders WHERE source_key=?',(value['key'],)).fetchone()
+            if not before:raise ValueError('known_order_required')
+            if before[0]==digest:return False
+            db.execute('UPDATE received_orders SET payload_json=?,digest=?,last_seen=?,version=version+1 WHERE source_key=?',(encoded,digest,observed,value['key']))
+            db.execute('INSERT INTO received_history(source_key,digest,payload_json,observed_at) VALUES(?,?,?,?)',(value['key'],digest,encoded,observed))
+        return True
     def apply(self,payload,scope,product_ids):
         rows=normalize(payload,scope,product_ids)
         evidence=inspect_open_orders(payload,product_ids)

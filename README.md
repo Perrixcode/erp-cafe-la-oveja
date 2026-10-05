@@ -2,7 +2,7 @@
 
 ERP modular para Oveja Cocina y Café. El primer flujo operativo gestiona **tortas y dulces enteros**, recepción desde Toteat, agendamiento, marcado y entrega. Incluye Inicio, consulta y seguimiento de transferencias del bot Ovejita. Python, SQLite y HTML/CSS/JavaScript nativo; Gunicorn y Caddy para producción.
 
-**La distribución pública incluye solo datos ficticios. La instalación privada puede leer Toteat: comandas abiertas → Lectura de Toteat; ventas cerradas y saldadas con comentario válido → Agendadas. No escribe pedidos, pagos ni stock en Toteat. La boleta PDF se adjunta cuando llega; no es requisito para agendar. Todo acceso a datos requiere una cuenta autenticada. Los perfiles Socio, Producción y Caja se validan en el servidor; los cambios nuevos registran el usuario real. La demo local usa localhost; la instalación en servidor usa HTTPS y servicios aislados.**
+**La distribución pública incluye solo datos ficticios. La instalación privada puede leer Toteat: comandas abiertas → Lectura de Toteat; ventas presenciales cerradas y saldadas con comentario válido → Agendadas; pedidos web pagados → revisión de modalidad y programación sin exigir cierre. No escribe pedidos, pagos ni stock en Toteat. La boleta PDF se adjunta cuando llega; no es requisito para agendar. Todo acceso a datos requiere una cuenta autenticada. Los perfiles Socio, Producción y Caja se validan en el servidor; los cambios nuevos registran el usuario real. La demo local usa localhost; la instalación en servidor usa HTTPS y servicios aislados.**
 
 ## Interfaz
 
@@ -21,6 +21,8 @@ python3 scripts/start_local.py
 ```
 
 El lector consulta abiertas cada 30 segundos y ventas del turno verificado cada 90 segundos. Lectura muestra solo las pendientes; al agendar se conserva una única identidad con comentario original, pago y boleta. No se interpreta la desaparición de una comanda como pago. Los casos sin nombre, fecha u hora válidos requieren revisión; el teléfono ausente se señala. Ver [estado y límites de la conexión](docs/TOTEAT_READONLY.md#estado-vigente).
+
+Los pedidos de canal `webstore` muestran cliente, contacto y pago Mercat desde el detalle de la comanda abierta. Un pago completo verificable se indica como **Pagado · pendiente de entrega/retiro**. El contrato observado no identifica explícitamente ASAP ni retiro/despacho: esos campos quedan por confirmar, aunque exista dirección. Un comentario con fecha requiere revisión; completar los datos no agenda automáticamente ni confirma entrega. El cierre posterior actualiza la misma identidad de recepción; si un socio ya la vinculó a un pedido, se concilia ese pedido sin duplicarlo. Los pagos parciales, múltiples o inconsistentes quedan por revisar. La presencia de un enlace de boleta no equivale a un PDF adjunto.
 
 Las tarjetas muestran **fecha y hora** en cualquier período. Las pruebas del rango tienen un acceso directo desde Operación a Simulaciones y siguen excluidas de métricas reales. La vista y el período se conservan en la URL al recargar.
 

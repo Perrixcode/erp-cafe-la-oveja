@@ -135,9 +135,26 @@ def context(store,received,include_history=False):
         result['channel']=channel_from_platform(result['parsed']['platform'])
         result['web_delivery_review']=result['channel']=='Web/Mercat'
         result['original_comment']=original
+        from erp.toteat_web import is_web
+        web=received.get('web_order') or {}
+        if is_web(received.get('channel')):
+            result['channel']='Web/Mercat'
+            result['web_delivery_review']=True
+            result['web_order']=web
+            result['can_classify_immediate']=False
+            # La evidencia financiera de una venta cerrada tiene prioridad.
+            if not sale and web.get('payment') and not alert:
+                result['payment']=web['payment']
+            for source,target,issue in [('customer','customer','nombre_pendiente'),('phone','customer_phone','telefono_pendiente')]:
+                if web.get(source):
+                    result['parsed'][target]=web[source]
+                    result['parsed']['issues']=[v for v in result['parsed']['issues'] if v!=issue]
+                    result['parsed']['warnings']=[v for v in result['parsed']['warnings'] if v!=issue]
         labels={'nombre_pendiente':'Nombre y apellido','fecha_pendiente':'Fecha de entrega','horario_pendiente':'Hora de entrega','telefono_pendiente':'Teléfono','telefono_por_revisar':'Teléfono por revisar','dia_semana_no_coincide':'Día y fecha no coinciden'}
         result['missing_fields']=[labels.get(code,'Comentario por revisar') for code in result['parsed']['issues']+result['parsed']['warnings'] if code in labels or code.startswith('campo_repetido_')]
         result['review_state']='delivered_immediate' if decision and decision['decision']=='immediate' else 'scheduled' if order_id else 'waiting_closed_payload' if closed_at and not sale else 'payment_review' if closed_at and not result['payment'] else 'schedule_incomplete' if result['payment'] and result['can_classify_immediate'] else 'source_review' if closed_at else 'waiting_close_payment'
+        if result['web_delivery_review'] and not order_id and not alert:
+            result['review_state']='web_paid_pending_fulfillment' if result['payment'] else 'web_payment_review'
         return result
 
 
@@ -154,6 +171,9 @@ def schedule(store,received,data,partner,reason,request_id,expected):
     # Productos desde el catálogo recibido; la UI no puede sustituir la comanda.
     value['items']=[{'sku':sku,'quantity':quantity} for sku,quantity in sos.received_totals(store,received).items()]
     details=context(store,received)
+    if details['web_delivery_review'] and details['payment']:
+        value.update(payment_status='paid_manual',payment_verified=True,
+                     payment_evidence='Pago web recibido de Toteat: '+details['payment']['payment_id'])
     if details['channel']!='No informado':value['channel']=details['channel']
     saved=sos.create(store,value,partner,reason,request_id,received,authorize_now=True,reception_revision=expected)
     with store.connect() as db:row=db.execute('SELECT payload_json FROM reception_sources WHERE source_id=?',(received['key'],)).fetchone()
@@ -175,6 +195,8 @@ def decide(store,received,decision,partner,reason,expected):
         check_revision(db,received,expected);require_bindable(db,key)
         if linked_order(db,key):raise DomainError('La comanda ya tiene un pedido. Revisa ese pedido sin duplicarlo.',409)
         if decision=='immediate':
+            from erp.toteat_web import is_web
+            if is_web(received.get('channel')):raise DomainError('Un pedido web requiere confirmar su modalidad y entrega por separado.',409)
             sale=db.execute('SELECT payload_json FROM reception_sources WHERE source_id=?',(key,)).fetchone()
             alert=db.execute('SELECT * FROM order_source_alerts WHERE source_id=?',(key,)).fetchone()
             if not immediate_eligible(json.loads(sale[0]) if sale else None,alert,None,before):

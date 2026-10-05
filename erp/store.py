@@ -207,6 +207,9 @@ class Store:
         from erp.sos import reconcile_sale, hold_possible_duplicate
         linked = reconcile_sale(self,source_id,transaction,candidate,money,is_test,receipt)
         if linked is not None:return linked
+        from erp.toteat_web import is_web
+        if is_web(candidate.get('source_channel')):
+            raise ValueError('web_delivery_contract_requires_review')
         if parsed is None:raise ValueError('comment_not_text')
         if channel_from_platform(parsed['platform'])=='Web/Mercat':
             raise ValueError('web_delivery_contract_requires_review')
