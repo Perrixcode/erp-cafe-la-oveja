@@ -1,0 +1,28 @@
+[Unit]
+Description=Ovejita partner follow-up bridge for ERP
+After=local-fs.target
+
+[Service]
+User=cafeteria
+Group=oveja-erp
+SupplementaryGroups=cafeteria
+WorkingDirectory=/opt/oveja-erp/app
+ExecStart=/usr/bin/python3 -B scripts/bot_followup_service.py --database /var/lib/cafeteria/whatsapp.sqlite3 --socket /run/oveja-erp-followup/service.sock
+RuntimeDirectory=oveja-erp-followup
+RuntimeDirectoryMode=0750
+Restart=on-failure
+RestartSec=5
+UMask=0027
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateNetwork=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/cafeteria /run/oveja-erp-followup
+InaccessiblePaths=/etc/cafeteria /var/lib/oveja-erp /etc/oveja-erp
+RestrictAddressFamilies=AF_UNIX
+MemoryMax=120M
+TasksMax=24
+
+[Install]
+WantedBy=multi-user.target

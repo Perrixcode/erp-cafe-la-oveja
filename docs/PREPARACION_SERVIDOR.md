@@ -14,7 +14,7 @@ Configuración preparada para Ubuntu 24.04, Caddy y systemd; sin Docker.
 
 `deploy/` contiene unidades de servicio/timer, configuración Gunicorn y bloque de sitio Caddy. Conservar los bloques existentes de otros servicios. Validar Caddy antes de recargarlo. No abrir 8010 en el firewall.
 
-Variables web: `OVEJA_DATA_ROOT`, `OVEJA_PUBLIC_ORIGIN` (HTTPS exacto, sin ruta) y `OVEJA_TRANSFERS_SNAPSHOT`. Cookies Secure en producción; Host/Origin comprobados; un proceso Gunicorn por las sesiones en memoria. Los reinicios exigen nuevo inicio de sesión, sin cambiar cuentas ni contraseñas.
+Variables web: `OVEJA_DATA_ROOT`, `OVEJA_PUBLIC_ORIGIN` (HTTPS exacto, sin ruta) `OVEJA_TRANSFERS_SNAPSHOT` y `OVEJA_TRANSFERS_SOCKET` (`/run/oveja-erp-followup/service.sock`). Cookies Secure en producción; Host/Origin comprobados; un proceso Gunicorn por las sesiones en memoria. Los reinicios exigen nuevo inicio de sesión, sin cambiar cuentas ni contraseñas.
 
 El lector Linux recibe la credencial por `LoadCredential`; nunca descargarla, imprimirla ni ponerla en Git. Comparar restaurante/local con la instalación antes de activarlo. La configuración de consulta preserva la fecha verificada del turno y el punto inicial de importación.
 
@@ -37,4 +37,4 @@ Caddy conserva un respaldo `Caddyfile.before-oveja-erp-*` en `/etc/caddy/`. Vali
 
 El archivo original del flujo de Ovejita y una copia SQLite íntegra se conservan en `/var/backups/cafeteria/before-erp-evidence-*`. Para revertir el hook de fotografías, restaurar solo su archivo Python y reiniciar `cafeteria-worker` cuando no esté procesando/enviando. No restaurar la base antigua sobre revisiones nuevas. Las fotos archivadas se preservan.
 
-El panel previo se conserva hasta reemplazar sus acciones de seguimiento/exportación y verificar la aceptación funcional. La lectura, fotos nuevas y descarga del ERP ya usan su propia interfaz y sus permisos.
+El reemplazo de seguimiento y exportación está implementado y documentado en [Paridad del panel](PARIDAD_PANEL_BOT.md). La retirada del servicio anterior requiere primero verificar la versión desplegada, datos y reversión. El puente `oveja-erp-followup` conserva las mismas resoluciones para los cierres y monitor, con escritura limitada a seguimiento; no tiene acceso de red ni credenciales.

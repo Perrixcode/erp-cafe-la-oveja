@@ -35,10 +35,12 @@ Proyecto personal de Esteban Iturra, desarrollado con asistencia técnica y revi
 
 ## Alcance y límites
 
-Funcionales: Inicio, pedidos de tortas, recepción y revisión, marcado, boletas, cuentas, prioridades y lectura de transferencias del local. Las fotos nuevas del bot se archivan privadamente y se muestran en un modal con descarga, vinculadas mediante hash y revisión a la selección exacta de la cajera. El histórico que no tenía foto ni productos no se reconstruye por aproximación.
+Funcionales: Inicio, pedidos de tortas, recepción y revisión, marcado, boletas, cuentas, prioridades y transferencias del local con seguimiento y exportación. Las fotos nuevas del bot se archivan privadamente y se muestran en un modal con descarga, vinculadas mediante hash y revisión a la selección exacta de la cajera. El histórico que no tenía foto ni productos no se reconstruye por aproximación.
 
 Las pestañas de personas, documentos, proveedores, reparto, turnos, asistencia, inventario, análisis y demás áreas son una estructura inicial. No simulan GPS, GeoVictoria, liquidaciones ni operaciones financieras. La futura preparación semanal de facturas contempla **texto para copiar a WhatsApp**, sin envío automático.
 
 Limitaciones de fuente: el comentario no siempre está disponible en comandas abiertas; desaparecidas no equivalen a anuladas. Cancelación solo por evidencia explícita documentada; parcial/nota de crédito requiere revisión. El sondeo de anulaciones revisa hasta tres identidades conocidas por ciclo, por lo que no promete detección instantánea ni cobertura histórica completa.
 
 El proyecto no acredita abonos bancarios por reconocer una imagen. No archiva claves ni datos privados en Git. No se ha elegido licencia.
+
+El seguimiento del bot usa un puente por socket Unix y conserva las resoluciones que ya leen sus cierres y monitor. El proceso web no accede a la base ni a las credenciales del bot. La exportación CSV registra un evento en la base del ERP. Véase [paridad y aislamiento](PARIDAD_PANEL_BOT.md).

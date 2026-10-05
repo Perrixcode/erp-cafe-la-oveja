@@ -1,6 +1,6 @@
 # ERP Café La Oveja
 
-ERP modular para Oveja Cocina y Café. El primer flujo operativo gestiona **tortas y dulces enteros**, recepción desde Toteat, agendamiento, marcado y entrega. Incluye Inicio y consulta de transferencias del bot Ovejita. Python, SQLite y HTML/CSS/JavaScript nativo; Gunicorn y Caddy para producción.
+ERP modular para Oveja Cocina y Café. El primer flujo operativo gestiona **tortas y dulces enteros**, recepción desde Toteat, agendamiento, marcado y entrega. Incluye Inicio, consulta y seguimiento de transferencias del bot Ovejita. Python, SQLite y HTML/CSS/JavaScript nativo; Gunicorn y Caddy para producción.
 
 **La distribución pública incluye solo datos ficticios. La instalación privada puede leer Toteat: comandas abiertas → Lectura de Toteat; ventas cerradas y saldadas con comentario válido → Agendadas. No escribe pedidos, pagos ni stock en Toteat. La boleta PDF se adjunta cuando llega; no es requisito para agendar. Todo acceso a datos requiere una cuenta autenticada. Los perfiles Socio, Producción y Caja se validan en el servidor; los cambios nuevos registran el usuario real. La demo local usa localhost; la instalación en servidor usa HTTPS y servicios aislados.**
 
@@ -238,6 +238,8 @@ Proyecto personal de Esteban Iturra, desarrollado con asistencia técnica, revis
 
 Identidad negro/blanco inspirada en [Café La Oveja](https://cafelaoveja.cl); crema, oliva y caramelo son interpretación del ERP. Tipografía del sistema; sin fotos ni archivos del logo oficial.
 
-Estado actual: recepción con agendamiento automático o autorización de socio; datos incompletos en revisión; venta inmediata separada; alertas de anulación con historial; boletas; acceso integral; Inicio; lectura de transferencias; fotos nuevas del bot con vista previa y descarga. [Arquitectura y tecnologías](docs/ARQUITECTURA.md), [despliegue](docs/PREPARACION_SERVIDOR.md).
+Estado actual: recepción con agendamiento automático o autorización de socio; datos incompletos en revisión; venta inmediata separada; alertas de anulación con historial; boletas; acceso integral; Inicio; transferencias con seguimiento de socios, filtros y exportación CSV auditada; fotos nuevas del bot con vista previa y descarga. [Arquitectura y tecnologías](docs/ARQUITECTURA.md), [despliegue](docs/PREPARACION_SERVIDOR.md).
 
 Guías: [aprendizaje](LEARNING.md), [operación](docs/OPERACION.md), [Toteat](docs/TOTEAT_READONLY.md).
+
+El reemplazo funcional del panel anterior se documenta en [Paridad del panel de Ovejita](docs/PARIDAD_PANEL_BOT.md).

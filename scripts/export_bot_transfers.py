@@ -8,6 +8,10 @@ import os
 from pathlib import Path
 import sqlite3
 import tempfile
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from integrations.ovejita_followup import source_reference
 
 
 def export_snapshot(database,destination,names=None,evidence_root=None):
@@ -30,12 +34,16 @@ def export_snapshot(database,destination,names=None,evidence_root=None):
         alerts=[dict(r) for r in db.execute('SELECT fecha,revision_id,tipo,detalle FROM alertas_operativas ORDER BY fecha DESC LIMIT 20')] if 'alertas_operativas' in tables else []
         health=[dict(r) for r in db.execute('SELECT componente,estado,detalle,fecha FROM salud ORDER BY componente')]
         histories={}
-        for value in db.execute('SELECT revision_id,fecha,usuario,accion,motivo FROM resoluciones ORDER BY id'):
+        for value in db.execute('SELECT id,revision_id,fecha,usuario,accion,motivo FROM resoluciones ORDER BY id'):
             event=dict(value);histories.setdefault(event.pop('revision_id'),[]).append(event)
     # Release SQLite read locks before hashing/copying photographs.
     rows=[]
     for value in values:
-        row=dict(value);row['cajera']=names.get(row.pop('remitente'),'Sin identificar (histórico)')
+        row=dict(value)
+        row['source_ref']=source_reference(row)
+        sender=row.pop('remitente')
+        row['cashier_id']=hashlib.sha256(str(sender).encode()).hexdigest() if sender else 'unknown'
+        row['cajera']=names.get(sender,'Sin identificar (histórico)')
         if row['cajera']=='Esteban (dueño)':row['cajera']='Esteban (socio)'
         fingerprint=row.pop('huella');row['photo']=None;row['selected_sale']=None
         if isinstance(fingerprint,str) and len(fingerprint)==64 and all(c in '0123456789abcdef' for c in fingerprint):
@@ -56,6 +64,7 @@ def export_snapshot(database,destination,names=None,evidence_root=None):
                 if evidence.get('revision_id')==row['id'] and evidence.get('fingerprint')==fingerprint and str(evidence.get('sale',{}).get('id'))==str(row['orden_id']):row['selected_sale']=evidence
         row['estados']=json.loads(row['estados']);row['alertas']=json.loads(row['alertas'])
         row['history']=histories.get(row['id'],[])
+        row['followup_version']=row['history'][-1]['id'] if row['history'] else 0
         rows.append(row)
     data={'version':1,'updated_at':datetime.now(timezone.utc).isoformat(),'rows':rows,'health':health,'closures':closures,'alerts':alerts,'uncertain_messages':uncertain}
     destination.parent.mkdir(parents=True,exist_ok=True)

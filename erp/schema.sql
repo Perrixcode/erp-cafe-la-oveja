@@ -1,5 +1,10 @@
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS transfer_exports (
+    request_id TEXT PRIMARY KEY, occurred_at TEXT NOT NULL, actor TEXT NOT NULL,
+    filters_json TEXT NOT NULL, row_count INTEGER NOT NULL, content_sha256 TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS order_customer_changes (
     order_id INTEGER PRIMARY KEY REFERENCES orders(id),
     customer TEXT NOT NULL,

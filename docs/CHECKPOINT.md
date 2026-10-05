@@ -1,3 +1,9 @@
+# Migración funcional del panel · en verificación · 2026-10-05 UTC
+
+Seguimiento revisar/reabrir, filtros por cajera/estado, distribución por motivo/cajera/día, alerta de salud atrasada y exportación CSV completa auditada implementados. 212 pruebas Python aprobadas; Chrome dedicado 1180/320 pasa revisión/reapertura/cancelar/doble clic/recarga/filtro/descarga CSV. El puente privado conserva `resoluciones` para cierres y monitor; no modifica resultado, monto, pagos ni mensajes. Falta desplegar esta versión y verificar paridad/reversión antes de detener el panel antiguo.
+
+Muestra web acotada a las 00:37 UTC: una consulta de abiertas (2 órdenes, 1 torta) y una consulta del turno verificado del 2/10 (298 registros, 13 coincidencias del catálogo). Sin indicadores verificables de origen web, ASAP/programada ni fecha solicitada. Sin barrido de otras fechas ni payloads crudos guardados. Se solicitaron número de comanda y fecha de dos pedidos web existentes, uno ASAP y otro programado; no pedir compras de prueba. La clasificación web continúa en revisión hasta evidencia.
+
 # Entrega desplegada · 2026-10-05 UTC
 
 - **HTTPS activo:** https://erp.loxby.cl. Diseño A. Acceso con las cuentas existentes; perfiles y datos privados protegidos por servidor. Localhost solo redirige al servidor, sin escribir datos.

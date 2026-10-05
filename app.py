@@ -141,7 +141,7 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                 if path == '/api/transfers':
                     partners.require(self.headers.get('Cookie'))
                     from erp.transfers import read_transfers
-                    return self.send(200,read_transfers(os.environ.get('OVEJA_TRANSFERS_SNAPSHOT'),{k:v[0] for k,v in parse_qs(parsed.query).items()}))
+                    return self.send(200,read_transfers(os.environ.get('OVEJA_TRANSFERS_SNAPSHOT'),{k:v[0] for k,v in parse_qs(parsed.query).items()},os.environ.get('OVEJA_TRANSFERS_SOCKET')))
                 if path == '/api/toteat/reception':
                     key=parse_qs(parsed.query).get('key',[''])[0]
                     try:received=get_received(reader_path,key)
@@ -218,6 +218,17 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                     return self.send(200, (ROOT / "static" / name).read_bytes(), kind + "; charset=utf-8")
             elif self.command in {"POST", "PUT"}:
                 data = self.body()
+                transfer_followup=re.fullmatch(r'/api/transfers/(\d+)/follow-up',path)
+                if self.command=='POST' and (transfer_followup or path=='/api/transfers/export'):
+                    account=partners.require(self.headers.get('Cookie'))
+                    if transfer_followup:
+                        from erp.transfer_followup import call
+                        payload={key:data.get(key) for key in ('action','reason','version','request_id','source_ref')}
+                        payload.update(actor=account['username'],revision_id=int(transfer_followup[1]))
+                        return self.send(200,call(os.environ.get('OVEJA_TRANSFERS_SOCKET'),'/follow-up',payload))
+                    from erp.transfers import export_csv
+                    content=export_csv(os.environ.get('OVEJA_TRANSFERS_SNAPSHOT'),data.get('filters'),store,account['username'],data.get('request_id'),os.environ.get('OVEJA_TRANSFERS_SOCKET'))
+                    return self.send(200,content,'text/csv; charset=utf-8',{'Content-Disposition':'attachment; filename="oveja-transferencias.csv"'})
                 if user:
                     # La identidad para el historial nunca procede del formulario.
                     data['actor'] = user['username']
