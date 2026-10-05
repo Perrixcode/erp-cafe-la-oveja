@@ -8,17 +8,17 @@ window.OvejaFees=(()=>{
   function reset(){sequence++;active=false;busy=false;snapshot=null;month='';lastLoad=0;lastError='';opened.clear();}
   function leave(){if(active){sequence++;active=false;busy=false;}}
   function enter(){
-    if(!state.partner){$('#delivery-filter').classList.add('hidden');$('#delivery-results').innerHTML='<p class="empty compact">Los importes de reparto están disponibles para socios.</p>';return;}
-    $('#delivery-filter').classList.remove('hidden');
+    if(!state.partner){$('#fees-filter').classList.add('hidden');$('#delivery-results').innerHTML='<p class="empty compact">Los importes de reparto están disponibles para socios.</p>';return;}
+    $('#fees-filter').classList.remove('hidden');
     const fresh=!active;active=true;
     if(!month)month=/^\d{4}-\d{2}$/.test(initialMonth||'')?initialMonth:state.board.today.slice(0,7);
-    $('#delivery-filter').elements.month.value=month;$('#delivery-filter').elements.month.max=state.board.today.slice(0,7);
+    $('#fees-filter').elements.month.value=month;$('#fees-filter').elements.month.max=state.board.today.slice(0,7);
     if(fresh)load(true);else if(Date.now()-lastLoad>10000)load(false);
   }
   async function load(refresh=false){
     if(busy||!visible())return;
     const request=++sequence;busy=true;
-    const button=$('#delivery-filter button');button.disabled=true;
+    const button=$('#fees-filter button');button.disabled=true;
     $('#delivery-sync-note').textContent=refresh?'Solicitando actualización…':'Consultando última lectura…';
     if(!snapshot)$('#delivery-results').innerHTML='<div class="empty compact">Preparando el resumen de reparto…</div>';
     try{
@@ -50,6 +50,6 @@ window.OvejaFees=(()=>{
   }
   function sourceStamp(value){return localStamp(/[zZ]$|[+-]\d\d:\d\d$/.test(value)?value:value+'Z');}
   document.addEventListener('toggle',event=>{const day=event.target;if(!day.matches?.('[data-fee-date]'))return;if(day.open)opened.add(day.dataset.feeDate);else opened.delete(day.dataset.feeDate);},true);
-  document.addEventListener('submit',event=>{if(event.target.id!=='delivery-filter')return;event.preventDefault();if(busy)return;const value=event.target.elements.month.value;if(value!==month){month=value;snapshot=null;opened.clear();}load(true);rememberView();});
+  document.addEventListener('submit',event=>{if(event.target.id!=='fees-filter')return;event.preventDefault();if(busy)return;const value=event.target.elements.month.value;if(value!==month){month=value;snapshot=null;opened.clear();}load(true);rememberView();});
   return {enter,leave,reset,get month(){return month;}};
 })();
