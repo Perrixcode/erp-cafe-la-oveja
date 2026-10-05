@@ -130,6 +130,17 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
             public = {('GET','/api/health'),('GET','/api/partner/session'),('POST','/api/partner/login'),('POST','/api/partner/logout')}
             if path.startswith('/api/') and (self.command,path) not in public:
                 user = partners.authorize(self.headers.get('Cookie'), 'read')
+            if path.startswith('/api/delivery/'):
+                from erp import delivery_finance
+                account=partners.require(self.headers.get('Cookie'))
+                if self.command=='GET' and path=='/api/delivery/fees':
+                    value=delivery_finance.view(store,parse_qs(parsed.query).get('month',[None])[0])
+                    reader=read_inbox(reader_path,False)
+                    value['reader']=reader.get('delivery_reader',{'state':reader.get('state','not_configured')})
+                    return self.send(200,value)
+                if self.command=='POST' and path=='/api/delivery/refresh':
+                    self.body()
+                    return self.send(202,delivery_finance.request_refresh(store,account['username']))
             if self.command == "GET":
                 transfer_photo=re.fullmatch(r'/api/transfers/(\d+)/photo',path)
                 if transfer_photo:
@@ -212,7 +223,7 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                 if match:
                     if store.get(int(match[1])).get('scheduling_status')=='draft':partners.require(self.headers.get('Cookie'))
                     return self.send(200, store.history(int(match[1])))
-                assets = {"/theme.css": ("theme.css", "text/css"), "/fonts/NotoSans.ttf": ("fonts/NotoSans.ttf", "font/ttf"),"/home.js": ("home.js", "text/javascript"),"/transfers.js": ("transfers.js", "text/javascript"),"/reception.js": ("reception.js", "text/javascript"),"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/notifications.js": ("notifications.js", "text/javascript"), "/styles.css": ("styles.css", "text/css")}
+                assets = {"/delivery.js": ("delivery.js", "text/javascript"), "/theme.css": ("theme.css", "text/css"), "/fonts/NotoSans.ttf": ("fonts/NotoSans.ttf", "font/ttf"),"/home.js": ("home.js", "text/javascript"),"/transfers.js": ("transfers.js", "text/javascript"),"/reception.js": ("reception.js", "text/javascript"),"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/notifications.js": ("notifications.js", "text/javascript"), "/styles.css": ("styles.css", "text/css")}
                 if path in assets:
                     name, kind = assets[path]
                     return self.send(200, (ROOT / "static" / name).read_bytes(), kind + "; charset=utf-8")

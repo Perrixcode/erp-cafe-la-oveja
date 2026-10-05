@@ -74,6 +74,12 @@ def sales_cycle(inbox, root=ROOT, reader=read_helper, downloader=download_receip
             payload = reader(binary,['sales-one-day',start.strftime('%Y%m%d')],current)
             if not isinstance(payload.get('data'),list):
                 raise ValueError('invalid_sales_rows')
+            # La misma respuesta alimenta tarifas sin gastar otra consulta.
+            from erp import delivery_finance
+            if delivery_finance.enabled(store):
+                try:delivery_finance.apply_day(store,day,payload,current)
+                except delivery_finance.DomainError:
+                    delivery_finance.fail_day(store,day,'El detalle de tarifas requiere revisión. Se conserva la lectura anterior.')
             returned += len(payload['data'])
             if payload['data'] and day>safe['verified_sales_day']:
                 safe['verified_sales_day']=day

@@ -207,6 +207,8 @@ def read_inbox(path,include_orders=True):
             state = db.execute("SELECT payload_json FROM received_sales_state WHERE source_key='__reader__'").fetchone()
             cancellations=db.execute("SELECT payload_json FROM received_sales_state WHERE source_key='__cancellations__'").fetchone()
             if cancellations:result['cancellation_reader']=json.loads(cancellations[0])
+            delivery=db.execute("SELECT payload_json FROM received_sales_state WHERE source_key='__delivery__'").fetchone()
+            if delivery:result['delivery_reader']=json.loads(delivery[0])
             if state:
                 result['sales_reader'] = json.loads(state[0])
                 result['automatic_scheduling'] = result['sales_reader'].get('automatic_scheduling',False)

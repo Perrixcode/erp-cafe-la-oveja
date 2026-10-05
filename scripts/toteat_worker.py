@@ -19,7 +19,7 @@ def next_delay(failures,retry_after=0):return max(min(300,INTERVAL*2**min(failur
 def cooldown_seconds(state,current=None):
     current=current or datetime.now(timezone.utc)
     waits=[]
-    for row in (state,state.get('sales_reader',{}),state.get('cancellation_reader',{})):
+    for row in (state,state.get('sales_reader',{}),state.get('cancellation_reader',{}),state.get('delivery_reader',{})):
         if row.get('http_status')!=429:continue
         try:waits.append((datetime.fromisoformat(row['retry_at'])-current).total_seconds())
         except (KeyError,TypeError,ValueError):pass
@@ -77,6 +77,8 @@ def main():
                         sales_cycle(inbox)
                         from scripts.toteat_cancellations import cancellation_cycle
                         if not cooldown_seconds(read_inbox(inbox.path,False)):cancellation_cycle(inbox)
+                        from scripts.delivery_worker import delivery_cycle
+                        if not cooldown_seconds(read_inbox(inbox.path,False)):delivery_cycle(inbox)
                     except Exception:
                         inbox.set_sales_state('__reader__',{'state':'review_required','error':'contract_or_local_error','checked_at':stamp(),'automatic_scheduling':False})
                 if read_inbox(inbox.path,False).get('state')=='receiving':failures=0;delay=INTERVAL

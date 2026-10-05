@@ -190,3 +190,22 @@ CREATE TABLE IF NOT EXISTS order_source_alerts (
     version INTEGER NOT NULL DEFAULT 1,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS delivery_days (
+    day TEXT PRIMARY KEY, state TEXT NOT NULL DEFAULT 'pending', requested_at TEXT,
+    last_success TEXT, last_attempt TEXT, error TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS delivery_transactions (
+    source_key TEXT PRIMARY KEY, source_day TEXT NOT NULL, order_id TEXT NOT NULL,
+    payment_id TEXT NOT NULL, fee INTEGER NOT NULL, sale_paid INTEGER NOT NULL,
+    payload_json TEXT NOT NULL, digest TEXT NOT NULL, last_seen TEXT NOT NULL,
+    source_missing INTEGER NOT NULL DEFAULT 0 CHECK(source_missing IN (0,1))
+);
+CREATE INDEX IF NOT EXISTS delivery_transactions_day ON delivery_transactions(source_day);
+CREATE TABLE IF NOT EXISTS delivery_finance_history (
+    id INTEGER PRIMARY KEY, source_key TEXT NOT NULL, occurred_at TEXT NOT NULL,
+    before_json TEXT, after_json TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS delivery_sync_requests (
+    id INTEGER PRIMARY KEY, actor TEXT NOT NULL, occurred_at TEXT NOT NULL, kind TEXT NOT NULL
+);
