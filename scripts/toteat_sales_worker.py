@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 from erp.store import Store
 from erp import reception
@@ -56,10 +57,13 @@ def sales_cycle(inbox, root=ROOT, reader=read_helper, downloader=download_receip
             # una fecha de apertura acreditada. Nunca reemplaza el día de ventas.
             safe['shift_status']=str(response.get('status','unknown'))
             safe['shift_status_reported_at']=str(response.get('date',''))
-        day_now=current_day or datetime.now(timezone.utc).date()
+        day_now=current_day or datetime.now(ZoneInfo('America/Santiago')).date()
         confirmed=date.fromisoformat(shift)
         floor=max(date.fromisoformat(config['shift_start']),confirmed-timedelta(days=1),day_now-timedelta(days=13))
-        shifts=sorted({confirmed.isoformat(),*((floor+timedelta(days=n)).isoformat() for n in range(max(0,(day_now-floor).days+1)))}) if config.get('automatic_shift_lookup') else [shift]
+        alternatives=sorted({(floor+timedelta(days=n)).isoformat() for n in range(max(0,(day_now-floor).days+1))}-{confirmed.isoformat()},reverse=True)
+        cursor=prior.get('discovery_cursor',0)
+        shifts=sorted({shift,alternatives[cursor%len(alternatives)]}) if config.get('automatic_shift_lookup') and alternatives else [shift]
+        safe['discovery_cursor']=(cursor+1)%len(alternatives) if alternatives else 0
         safe['queried_sales_days']=shifts
         safe['verified_sales_day']=shift
         store = Store(root/'data/erp-demo.sqlite3');catalog = store.catalog()
@@ -146,4 +150,4 @@ def sales_cycle(inbox, root=ROOT, reader=read_helper, downloader=download_receip
             path.write_text(json.dumps(config,ensure_ascii=False,indent=2)+'\n');path.chmod(0o600)
         inbox.set_sales_state('__reader__',dict(safe,state='access_required' if auth else 'retrying',error=error.code,http_status=error.http_status,
             last_success=previous,automatic_scheduling=False if auth else True,
-            retry_at=(datetime.now(timezone.utc)+timedelta(seconds=300)).isoformat()))
+            retry_at=(datetime.now(timezone.utc)+timedelta(seconds=max(300,getattr(error,'retry_after',0)))).isoformat()))

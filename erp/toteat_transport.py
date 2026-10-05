@@ -5,10 +5,21 @@ import os
 from pathlib import Path
 import re
 import ssl
+import time
 from urllib.parse import urlencode
 from urllib.request import Request,HTTPRedirectHandler,HTTPSHandler,build_opener
 from urllib.error import HTTPError,URLError
 from scripts.probe_toteat_comments import ProbeFailure
+
+_next_request=0.0
+
+
+def paced_open(open_request,request):
+    global _next_request
+    delay=_next_request-time.monotonic()
+    if delay>0:time.sleep(delay)
+    try:return open_request(request,timeout=20)
+    finally:_next_request=time.monotonic()+2
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -43,13 +54,17 @@ def fetch(arguments,current=None,opener=None):
     request=Request('https://api.toteat.com/mw/or/1.0/'+endpoint+'?'+urlencode({**config,**params}),headers={'Accept':'application/json'},method='GET')
     open_request=opener or build_opener(NoRedirect(),HTTPSHandler(context=ssl.create_default_context())).open
     try:
-        with open_request(request,timeout=20) as response:raw=response.read(4*1024*1024+1)
+        with (open_request(request,timeout=20) if opener else paced_open(open_request,request)) as response:raw=response.read(4*1024*1024+1)
         if len(raw)>4*1024*1024:raise ProbeFailure('response_too_large')
         if config['xapitoken'].encode() in raw:raise ProbeFailure('credential_reflection_blocked')
         payload=json.loads(raw)
         if not isinstance(payload,dict) or payload.get('ok') is not True:raise ProbeFailure('provider_success_not_confirmed')
     except HTTPError as error:
-        code=error.code;error.close();raise ProbeFailure('http_error',code) from None
+        code=error.code
+        retry=error.headers.get('Retry-After','') if error.headers else ''
+        error.close();failure=ProbeFailure('http_error',code)
+        failure.retry_after=min(3600,int(retry)) if retry.isdigit() else 300
+        raise failure from None
     except (URLError,OSError,TimeoutError):raise ProbeFailure('network_error') from None
     except ValueError:raise ProbeFailure('invalid_response') from None
     return {'ok':True,'scope':scope,'payload':payload}

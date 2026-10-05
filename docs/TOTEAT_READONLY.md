@@ -155,3 +155,8 @@ Los duplicados con el mismo `id` y payload idéntico se cuentan una vez. Un mism
 Se excluyen nombres/códigos con trozo, porción, slice o rebanada. Un formato individual queda en revisión. «20 porciones» puede describir rendimiento de un entero dentro de una categoría autorizada: no se convierte en inventario de porciones ni en tamaño/receta confirmado. La preselección no demuestra stock, receta ni disponibilidad.
 
 Todos los datos reales permanecen en memoria y la salida local, sin exportación, archivos, base demo ni GitHub. Los mensajes libres de `msg` no se imprimen. Si una respuesta refleja el token en la proyección, se bloquea su visualización. El servicio no amplía permisos ni mantiene acceso después de cerrar. Las pruebas usan únicamente productos e IDs ficticios.
+
+
+## Control de frecuencia en servidor
+
+Se observó HTTP 429 del proveedor. El lector ERP respeta una pausa global ante esa respuesta, conserva la última lectura y no ejecuta otras consultas durante la espera. Si llega `Retry-After` numérico se considera su intervalo; la espera mínima es cinco minutos. Se separan las solicitudes GET al menos dos segundos. La búsqueda de ventas consulta el día verificado y como máximo otro día rotativo por ciclo, dentro del rango acotado autorizado. El cálculo de hoy usa America/Santiago, evitando consultar mañana al cambiar el día UTC. Las cadencias indicadas son objetivos y se suspenden durante la espera del proveedor.

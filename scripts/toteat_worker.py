@@ -6,6 +6,7 @@ from pathlib import Path
 import subprocess
 import sys
 import time
+from datetime import datetime,timezone,timedelta
 if __package__ in {None,''}:sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from erp.toteat_inbox import Inbox,read_inbox,stamp
 from scripts.toteat_open_orders_probe import local_product_ids
@@ -14,6 +15,15 @@ ROOT=Path(os.environ.get('OVEJA_DATA_ROOT',Path(__file__).resolve().parents[1]))
 INTERVAL=30
 AUTH_FAILURES={'keychain_access_required','keychain_unavailable','invalid_credentials'}
 def next_delay(failures,retry_after=0):return max(min(300,INTERVAL*2**min(failures,4)),min(3600,max(0,retry_after)))
+
+def cooldown_seconds(state,current=None):
+    current=current or datetime.now(timezone.utc)
+    waits=[]
+    for row in (state,state.get('sales_reader',{}),state.get('cancellation_reader',{})):
+        if row.get('http_status')!=429:continue
+        try:waits.append((datetime.fromisoformat(row['retry_at'])-current).total_seconds())
+        except (KeyError,TypeError,ValueError):pass
+    return max([0,*waits])
 def cycle(inbox,fetch,ids):
     result=fetch()
     if not isinstance(result,dict) or result.get('ok') is not True:
@@ -26,6 +36,9 @@ def cycle(inbox,fetch,ids):
         if previous.get('last_success'):status['last_success']=previous['last_success']
         inbox.set_status(status)
         retry=result.get('retry_after',0)
+        if result.get('http_status')==429:
+            status['retry_at']=(datetime.now(timezone.utc)+timedelta(seconds=max(300,retry if type(retry) is int else 0))).isoformat()
+            inbox.set_status(status)
         return auth,retry if type(retry) is int else 0
     inbox.apply(result.get('payload'),result.get('scope',{}),ids)
     return False,0
@@ -42,23 +55,28 @@ def main():
                 from scripts.toteat_sales_worker import configuration
                 config=configuration(ROOT)
                 if not config:return {'ok':False,'error':'invalid_credentials'}
+                from scripts.probe_toteat_comments import ProbeFailure
                 try:return fetch_linux(['fetch'],config['scope'])
+                except ProbeFailure as error:return {'ok':False,'error':error.code,'http_status':error.http_status,'retry_after':getattr(error,'retry_after',300)}
                 except Exception:return {'ok':False,'error':'network_error'}
             process=subprocess.run([str(private/'oveja-toteat-reader'),'fetch'],stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,timeout=26)
             if len(process.stdout)>4*1024*1024:raise ValueError('helper_limit')
             return json.loads(process.stdout)
         while True:
             try:
+                pause=cooldown_seconds(read_inbox(inbox.path,False))
+                if pause>0:time.sleep(min(30,pause));continue
                 ids=local_product_ids(ROOT/'data/erp-demo.sqlite3')
                 auth,retry=cycle(inbox,fetch,ids)
                 if auth:return 0
+                if cooldown_seconds(read_inbox(inbox.path,False))>0:continue
                 if time.monotonic()-last_sales >= 90:
                     last_sales=time.monotonic()
                     try:
                         from scripts.toteat_sales_worker import sales_cycle
                         sales_cycle(inbox)
                         from scripts.toteat_cancellations import cancellation_cycle
-                        cancellation_cycle(inbox)
+                        if not cooldown_seconds(read_inbox(inbox.path,False)):cancellation_cycle(inbox)
                     except Exception:
                         inbox.set_sales_state('__reader__',{'state':'review_required','error':'contract_or_local_error','checked_at':stamp(),'automatic_scheduling':False})
                 if read_inbox(inbox.path,False).get('state')=='receiving':failures=0;delay=INTERVAL

@@ -7,7 +7,8 @@ import sqlite3
 import tempfile
 import unittest
 from erp.toteat_inbox import Inbox,normalize,read_inbox
-from scripts.toteat_worker import cycle,next_delay
+from scripts.toteat_worker import cycle,next_delay,cooldown_seconds
+from datetime import datetime,timezone
 import threading
 from urllib.request import urlopen
 from app import make_server
@@ -89,6 +90,16 @@ class InboxTests(unittest.TestCase):
         self.assertEqual(read_inbox(self.path)['state'],'access_required')
     def test_throttle_backoff_and_retry_after(self):
         self.assertEqual(next_delay(1),60);self.assertEqual(next_delay(10),300);self.assertEqual(next_delay(1,600),600)
+    def test_rate_limit_pauses_all_reader_stages_until_provider_window(self):
+        now=datetime(2026,10,5,0,0,tzinfo=timezone.utc)
+        self.assertEqual(cooldown_seconds({},now),0)
+        limited={'http_status':429,'retry_at':'2026-10-05T00:05:00+00:00'}
+        self.assertEqual(cooldown_seconds({'sales_reader':limited},now),300)
+        self.assertEqual(cooldown_seconds({'cancellation_reader':limited},now),300)
+        self.assertEqual(cooldown_seconds({'sales_reader':limited},datetime(2026,10,5,0,6,tzinfo=timezone.utc)),0)
+        cycle(self.inbox,lambda:{'ok':False,'http_status':429,'error':'http_error','retry_after':600},{9001})
+        self.assertGreater(cooldown_seconds(read_inbox(self.path,False)),590)
+
     def test_reader_never_touches_operational_tables(self):
         self.inbox.apply(payload(),SCOPE,{9001})
         with closing(sqlite3.connect(self.path)) as db:

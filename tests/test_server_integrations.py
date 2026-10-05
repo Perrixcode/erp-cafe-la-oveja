@@ -13,7 +13,7 @@ from erp.partner_auth import PartnerAuth
 from erp.wsgi import create_app
 from erp.transfers import read_transfers,read_photo
 from erp.domain import DomainError
-from erp.toteat_transport import fetch
+from erp.toteat_transport import fetch,paced_open
 from scripts.probe_toteat_comments import ProbeFailure
 from scripts.export_bot_transfers import export_snapshot
 from integrations.ovejita_archive import archive_photo,archive_selected
@@ -97,6 +97,20 @@ class ServerIntegrationTests(unittest.TestCase):
         result=read_transfers(target,dict(start='2026-10-01',end='2026-10-31'))
         self.assertEqual(result['closures'][0]['send_status'],'enviada')
         self.assertEqual(result['uncertain_messages'],1)
+
+    def test_linux_reader_spaces_requests_and_preserves_provider_retry_after(self):
+        from urllib.error import HTTPError
+        from email.message import Message
+        with patch('erp.toteat_transport._next_request',0),patch('erp.toteat_transport.time.monotonic',side_effect=[10,10,10.5,12]),patch('erp.toteat_transport.time.sleep') as sleep:
+            opener=lambda request,timeout:BytesIO(b'{}')
+            paced_open(opener,None).close();paced_open(opener,None).close()
+            sleep.assert_called_once_with(1.5)
+        (self.root/'toteat').write_text(json.dumps(dict(xir='111',xil='1',xiu='222',xapitoken='FAKE-TEST-SECRET')))
+        headers=Message();headers['Retry-After']='600'
+        def limited(*args,**kwargs):raise HTTPError('https://example.invalid',429,'Limited',headers,BytesIO(b''))
+        with patch.dict(os.environ,{'CREDENTIALS_DIRECTORY':str(self.root)}),self.assertRaises(ProbeFailure) as error:
+            fetch(['fetch'],opener=limited)
+        self.assertEqual(error.exception.http_status,429);self.assertEqual(error.exception.retry_after,600)
 
     def test_linux_reader_has_fixed_get_modes_scope_limits_and_no_credential_reflection(self):
         (self.root/'toteat').write_text(json.dumps(dict(xir='111',xil='1',xiu='222',xapitoken='FAKE-TEST-SECRET')))

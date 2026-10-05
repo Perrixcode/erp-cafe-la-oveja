@@ -7,7 +7,8 @@ import sqlite3
 import tempfile
 import threading
 import unittest
-from datetime import date
+from datetime import date,datetime,timezone
+from unittest.mock import patch
 from urllib.request import urlopen
 from urllib.error import HTTPError
 
@@ -167,6 +168,21 @@ class SchedulingTests(unittest.TestCase):
             self.assertEqual(db.execute('SELECT COUNT(*) FROM history').fetchone()[0],1)
         self.assertEqual(len(calls),4)
 
+    def test_midnight_utc_uses_chile_day_and_limits_sales_discovery_calls(self):
+        self.configure(automatic_shift=True);calls=[]
+        class Clock(datetime):
+            @classmethod
+            def now(cls,tz=None):return datetime(2026,10,5,0,5,tzinfo=timezone.utc).astimezone(tz)
+        def reader(binary,args,current):
+            calls.append(args)
+            if args==['shift-status']:return {'ok':True,'data':{'restaurantId':'DEMO','localNumber':'1','status':'open'}}
+            return {'ok':True,'data':[self.row] if args[1]=='20261002' else []}
+        with patch('scripts.toteat_sales_worker.datetime',Clock):
+            sales_cycle(self.inbox,self.root,reader)
+        days=[args[1] for args in calls if args[0]=='sales-one-day']
+        self.assertIn('20261002',days);self.assertIn('20261004',days)
+        self.assertNotIn('20261005',days);self.assertLessEqual(len(days),2)
+
     def test_response_timestamp_does_not_replace_verified_sales_day_and_new_day_is_discovered(self):
         self.configure(automatic_shift=True);calls=[];new_shift=False
         def reader(binary,args,current):
@@ -175,7 +191,7 @@ class SchedulingTests(unittest.TestCase):
                 return {'ok':True,'data':{'restaurantId':'DEMO','localNumber':'1','date':'2026-10-04T19:51:44','status':'open'}}
             return {'ok':True,'data':[self.row] if args[1]=='20261002' or (new_shift and args[1]=='20261005') else []}
         sales_cycle(self.inbox,self.root,reader,current_day=date(2026,10,4))
-        self.assertEqual(calls,[['shift-status'],['sales-one-day','20261002'],['sales-one-day','20261003'],['sales-one-day','20261004']])
+        self.assertEqual(calls,[['shift-status'],['sales-one-day','20261002'],['sales-one-day','20261004']])
         self.assertEqual(read_inbox(self.inbox.path)['sales_reader']['verified_sales_day'],'2026-10-02')
         calls.clear();sales_cycle(self.inbox,self.root,reader,current_day=date(2026,10,4))
         self.assertIn(['sales-one-day','20261002'],calls)
