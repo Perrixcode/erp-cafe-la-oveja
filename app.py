@@ -120,8 +120,11 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                 raise DomainError("Tamaño no válido.") from None
             if not 0 < length <= maximum:
                 raise DomainError("Solicitud vacía o demasiado grande.", 413)
+            content = self.rfile.read(length)
+            if len(content) != length:
+                raise DomainError("Solicitud incompleta. Vuelve a intentar.", 400)
             try:
-                data = json.loads(self.rfile.read(length))
+                data = json.loads(content)
             except (ValueError, UnicodeDecodeError):
                 raise DomainError("JSON no válido.") from None
             if not isinstance(data, dict):
