@@ -4,10 +4,17 @@ window.OvejaCashierV2Server=(()=>{
  const prefix='/api/cash-closures/v2',clone=x=>structuredClone(x),uid=()=>crypto.randomUUID().replaceAll('-','');
  const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
  const controllers=new Set();
+ function deadline(task,ms,message,cancel=()=>{}){
+  let timer;const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{reject(Error(message));cancel();},ms);});
+  return Promise.race([task,timeout]).finally(()=>clearTimeout(timer));
+ }
  async function api(path,body){
-  const r=await fetch(path,{method:body?'POST':'GET',credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json','X-ERP-Local':'1'}:{},body:body?JSON.stringify(body):undefined});
-  let data;try{data=await r.json();}catch{throw Error('Respuesta incompleta. Reintenta: la operación conserva su identificador.');}
-  if(!r.ok){const e=Error(data.error||'No se pudo completar.');e.status=r.status;throw e;}return data;
+  const controller=new AbortController();
+  return deadline((async()=>{
+   const r=await fetch(path,{method:body?'POST':'GET',signal:controller.signal,credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json','X-ERP-Local':'1'}:{},body:body?JSON.stringify(body):undefined});
+   let data;try{data=await r.json();}catch{throw Error('Respuesta incompleta. Reintenta: la operación conserva su identificador.');}
+   if(!r.ok){const e=Error(data.error||'No se pudo completar.');e.status=r.status;throw e;}return data;
+  })(),45000,'El servidor no respondió a tiempo. No se confirmó la operación. Tus datos siguen aquí; revisa la conexión y reintenta.',()=>controller.abort());
  }
  function enrich(v){
   v=clone(v);v.safe_deposits=v.events.filter(e=>e.kind==='deposit_safe').map(e=>({...e.detail,at:e.created_at,signed_snapshot_hash:e.detail.snapshot_hash}));
@@ -35,8 +42,8 @@ window.OvejaCashierV2Server=(()=>{
    this.current.summary=localSummary(this.current);return this.snapshot();
   }
   run(fn){const next=this.queue.then(fn);this.queue=next.catch(()=>{});return next;}
-  async request(action,extra={},base=prefix){
-   const body={version:this.current.version,confirmed:true,...extra};const key=JSON.stringify([base,action,body]);let attempt=this.attempts.get(key);
+  async request(action,extra={},base=prefix,attemptKey){
+   const body={version:this.current.version,confirmed:true,...extra};const key=attemptKey||JSON.stringify([base,action,body]);let attempt=this.attempts.get(key);
    if(!attempt){attempt={request_id:uid(),...body};this.attempts.set(key,attempt);}
    try{const result=await api(base+'/'+this.current.id+'/'+action,attempt);this.attempts.delete(key);return result;}catch(e){if(e.status&&e.status<500)this.attempts.delete(key);throw e;}
   }
@@ -60,16 +67,20 @@ window.OvejaCashierV2Server=(()=>{
   }
   async uploadPhoto(blob,kind,name,reference=false){
    await this.save();
-   const data=await blob.arrayBuffer();if(data.byteLength>3*1024*1024)throw Error('La foto comprimida supera 3 MiB. Usa otra foto más pequeña.');
+   const data=await deadline(blob.arrayBuffer(),15000,'No se pudo leer la foto preparada. Reintenta con la misma foto.');if(data.byteLength>3*1024*1024)throw Error('La foto comprimida supera 3 MiB. Usa otra foto más pequeña.');
    const bytes=new Uint8Array(data);let raw='';for(let i=0;i<bytes.length;i+=8192)raw+=String.fromCharCode(...bytes.subarray(i,i+8192));
-   return this.run(()=>this.request(reference?'reference-attach':'attach',{kind,file_name:name.slice(0,120),file_type:blob.type,file_data:btoa(raw)}));
+   const action=reference?'reference-attach':'attach',extra={kind,file_name:name.slice(0,120),file_type:blob.type,file_data:btoa(raw)};
+   // A lost response may already have committed. Retry the exact original body and
+   // request id even if an intervening autosave advances the draft version.
+   const attemptKey=JSON.stringify([this.current.id,action,extra]);
+   return this.run(()=>this.request(action,extra,prefix,attemptKey));
   }
   preview(){return this.controller.preview(this.current.id);}
   santiagoLocal(value){if(!value)return '';return new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Santiago',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(value)).replace(' ','T');}
  }
  class Controller {
   constructor(config){this.config=config;this.host=config.host;this.closed=false;this.ui=null;this.model=null;this.legacy=null;this.pending=false;this.timer=null;this.generation=0;this.dialogs=new Set();this.data=null;this.message='';controllers.add(this);this.start();}
-  get dirty(){return !!this.ui?.dirty||!!this.model&&this.model.sequence!==this.model.savedSequence;}
+  get dirty(){return !!this.ui?.pending||!!this.ui?.dirty||!!this.model&&this.model.sequence!==this.model.savedSequence;}
   status(message,error=false){this.message=message;const el=this.host.querySelector('[data-v2-status]');if(el){el.textContent=message;el.setAttribute('role',error?'alert':'status');}}
   fail(e){this.status(e.message,true);if(e.status===401)this.config.onUnauthorized?.();}
   async start(){try{this.host.innerHTML='<p role="status">Cargando cierres del servidor…</p>';this.data=await api(prefix);if(this.closed)return;if(this.config.closureId)await this.open(this.config.closureId);else this.list();}catch(e){this.host.textContent=e.message;this.fail(e);}}
@@ -83,7 +94,7 @@ window.OvejaCashierV2Server=(()=>{
     if(!this.createAttempt||JSON.stringify(this.createAttempt.body)!==JSON.stringify(body))this.createAttempt={body,request_id:uid()};
     try{const v=await api(prefix+'/create',{...body,request_id:this.createAttempt.request_id});this.createAttempt=null;await this.open(v.id,v);}catch(err){this.fail(err);}finally{this.pending=false;b.disabled=false;}};
   }
-  async refreshList(){if(this.dirty){await this.ui.save();}this.data=await api(prefix);this.list();}
+  async refreshList(){if(this.ui?.pending)throw Error('Termina o quita la foto pendiente antes de salir del cierre.');if(this.dirty){await this.ui.save();}this.data=await api(prefix);this.list();}
   openLegacy(id){this.ui?.destroy();this.ui=null;this.model=null;this.host.innerHTML='<button type="button" class="button secondary" data-back>Volver a cierres V2</button><section data-legacy-host></section>';this.host.querySelector('[data-back]').onclick=()=>this.refreshList().catch(e=>this.fail(e));this.legacy=this.config.legacyMount({...this.config,host:this.host.querySelector('[data-legacy-host]'),closureId:id,legacy:true});}
   async open(id,preloaded){
    if(this.closed)return;
