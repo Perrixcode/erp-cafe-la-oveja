@@ -70,6 +70,35 @@ def apply_items(db, entry, items, actor):
 
 
 def mutate(db, action, data, actor, target):
+    if action == 'account_invoice_credit_note':
+        origin = ap.integer(data.get('origin_invoice_id'), 'Factura de origen')
+        invoice = ap.record(db, 'ap_invoices', origin)
+        ap.version({'version': data.get('origin_version')}, invoice)
+        amount = ap.integer(data.get('amount'), 'Monto de nota de crédito')
+        reason = ap.text(data.get('notes'), 'Motivo de la nota de crédito recibida', True, 1000)
+        # Only this origin invoice is affected. Existing payments and any
+        # available overpayment remain intact in the same account ledger.
+        allocated_amount = min(amount, max(0, invoice['amount'] - ap.settled(db, origin)))
+        items = [dict(invoice_id=origin, version=invoice['version'], amount=allocated_amount)] if allocated_amount else []
+        if 'applications' in data:
+            raise DomainError('La nota desde factura se aplica solo a su factura de origen.')
+        proof = data.get('proof')
+        content = None
+        if proof is not None:
+            if not isinstance(proof, dict) or not isinstance(proof.get('base64'), str):
+                raise DomainError('Adjunta un documento PDF, JPG o PNG.')
+            if len(proof['base64']) > 4 * ((ap.LIMIT + 2) // 3):
+                raise DomainError('El documento debe pesar hasta 8 MB.', 413)
+            try: content = base64.b64decode(proof['base64'], validate=True)
+            except (ValueError, binascii.Error):
+                raise DomainError('El documento no llegó en un formato válido.') from None
+        result = mutate(db, 'account_credit_note', dict(data, notes=reason, applications=items), actor, target)
+        file_id = attach_in_transaction(db, result['id'], content, proof.get('name'), actor)['id'] if proof is not None else None
+        ap.event(db, 'invoice_credit_note_received', actor, reason=reason,
+                 after=dict(entry_id=result['id'],folio=result['folio'],amount=amount,applied=allocated_amount,available=amount-allocated_amount,file_id=file_id),
+                 supplier=invoice['supplier_id'], invoice=origin)
+        return dict(result, applied=allocated_amount, available=amount-allocated_amount, file_id=file_id,
+                    invoice_original=invoice['amount'], invoice_balance=invoice['amount']-ap.settled(db,origin))
     if action in ('account_joint_payment', 'account_invoice_payment'):
         items = data.get('applications')
         if not isinstance(items, list) or not items or any(not isinstance(item, dict) for item in items):
@@ -305,9 +334,13 @@ def statement(store, supplier_id, start='', end='', kind='all'):
         label = ('Pago / anticipo '+code if entry['kind'] == 'payment' else 'Nota de crédito '+entry['folio']+' · '+code)
         if entry['reference']:
             label += ' · '+entry['reference']
+        if entry['kind'] == 'credit_note':
+            origin = next((i for i in invoices if i['id'] == entry['origin_invoice_id']), None)
+            label += ' · Factura origen '+(origin['folio'] if origin else str(entry['origin_invoice_id']))
+            label += ' · Aplicado vigente '+ap.money(entry['applied'])+' · Disponible '+ap.money(entry['available'])
         if entry['kind'] == 'payment':
             label += ' · Aplicado vigente '+ap.money(entry['applied'])+' · Saldo a favor disponible '+ap.money(entry['available'])
-        add(entry['kind'], label, entry['occurred_on'], entry['created_at'], credit=entry['amount'], entry_id=entry['id'], actor=entry['actor'])
+        add(entry['kind'], label, entry['occurred_on'], entry['created_at'], credit=entry['amount'], entry_id=entry['id'], actor=entry['actor'], invoice_id=entry['origin_invoice_id'] if entry['kind']=='credit_note' else None)
         if entry['voided_at']:
             add('entry_void', 'Anulación de '+label+' · '+entry['void_reason'], business_day(entry['voided_at']), entry['voided_at'], debit=entry['amount'], entry_id=entry['id'], source_kind=entry['kind'], actor=entry['voided_by'])
         for application in entry['applications']:
@@ -391,6 +424,9 @@ def handle(handler, store, path, query, actor):
         disposition = 'attachment' if query.get('download') == ['1'] else 'inline'
         return handler.send(200, file['content'], file['mime'], {'Content-Disposition': f'{disposition}; filename="cuenta-{file["id"]}.{extension}"'})
     if handler.command == 'POST':
+        if path == '/api/suppliers/account-invoice-credit-notes':
+            data = handler.body(maximum=4 * ((ap.LIMIT + 2) // 3) + 65536)
+            return handler.send(201, ap.execute(store, 'account_invoice_credit_note', data, actor))
         if path in ('/api/suppliers/account-joint-payments', '/api/suppliers/account-invoice-payments'):
             # Base64 adds 4/3 overhead; the decoded file still has the same 8 MB limit.
             data = handler.body(maximum=4 * ((ap.LIMIT + 2) // 3) + 65536)

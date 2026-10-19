@@ -13,6 +13,7 @@ window.OvejaSupplierAccount=(()=>{
   function reset(){epoch++;view=null;supplierId=null;draft=null;busy=false;Object.assign(filters,{from:'',to:'',kind:'all'});}
   async function open(id){
     if(!allowed())return;
+    if(draft?.uncertain){pendingNote();return;}
     if(supplierId!==Number(id))Object.assign(filters,{from:'',to:'',kind:'all'});
     const token=++epoch,auth=authGeneration;
     const result=await api('/api/suppliers/accounts/'+Number(id)+'?'+query());
@@ -44,10 +45,16 @@ window.OvejaSupplierAccount=(()=>{
     return `<section class="ap-card"><h3>Aplicar a facturas</h3><p class="hint">Indica cuánto aplicar a cada factura. Deja 0 para conservar el importe como crédito disponible.</p>${eligible().map(r=>input(`Folio ${e(r.folio)} · saldo ${money(r.balance)}`,'allocation_'+r.id,0,`type="number" min="0" max="${r.balance}" step="1" data-ac-allocation="${r.id}"`)).join('')||'<p class="hint">No hay facturas con saldo validado pendiente. El importe quedará disponible.</p>'}<p id="account-amount-summary" class="hint" aria-live="polite"></p></section>`;
   }
   function form(kind,id){
-    const row=id?entry(id):null;
+    const row=kind==='invoice_credit_note'?view.invoices.find(r=>r.id===Number(id)):id?entry(id):null;
     draft={kind,row};
     let body='',heading='';
-    if(kind==='payment'||kind==='credit_note'){
+    if(kind==='invoice_credit_note'){
+      if(!row||row.voided_at||row.payment_review){toast('La factura cambió o necesita validar su saldo. Actualiza antes de registrar la nota.');return;}
+      const issued=view.entries.filter(e=>e.kind==='credit_note'&&e.origin_invoice_id===row.id&&!e.voided_at).reduce((n,e)=>n+e.amount,0),remaining=row.amount-issued;
+      if(remaining<=0){toast('Las notas vigentes ya cubren el importe original de esta factura.');return;}
+      heading='Agregar nota de crédito recibida';
+      body=`<p><strong>${e(view.supplier.name)}</strong> · Factura <strong>${e(row.folio)}</strong></p><p>Importe original: ${money(row.amount)} · Pagado: ${money(row.paid)} · NC aplicadas: ${money(row.credited)} · Saldo pendiente: ${money(row.balance)}.</p><p class="hint">Se aplicará a esta factura hasta su saldo pendiente. El resto quedará a favor con este proveedor, separado de cualquier sobrepago existente. No emite una nota en el SII ni modifica el importe original o los pagos.</p><div class="ap-form">${input('Folio de la nota recibida','folio','','required maxlength="80"')}${input('Fecha de la nota','occurred_on',view.today,`type="date" required min="${e(row.issued_on)}" max="${view.today}"`)}${input('Monto total de la nota · CLP','amount','',`type="number" min="1" max="${remaining}" step="1" required`)}${input('Motivo de la nota recibida','notes','','required maxlength="1000"')}</div><p class="hint">NC vigentes asociadas: ${money(issued)}. Máximo restante sobre el original: ${money(remaining)}.</p><p id="account-amount-summary" class="hint" aria-live="polite"></p><label class="field">Nota recibida · PDF, JPG o PNG · hasta 8 MB<input name="file" type="file" accept="application/pdf,image/png,image/jpeg"></label><p class="hint">Si falta el documento puedes adjuntarlo luego en la cuenta corriente; el registro mostrará que no tiene respaldo.</p><label class="ap-check"><input name="confirmed" type="checkbox" required>Confirmo la nota recibida, su factura de origen y el saldo a favor indicado.</label>`;
+    }else if(kind==='payment'||kind==='credit_note'){
       heading=kind==='payment'?'Registrar pago / anticipo':'Registrar nota de crédito';
       const origins=view.invoices.filter(r=>!r.voided_at&&!r.payment_review);
       if(kind==='credit_note'&&!origins.length){toast('Primero registra y valida la factura de origen.');return;}
@@ -65,6 +72,11 @@ window.OvejaSupplierAccount=(()=>{
   }
   function updateAmounts(){
     const f=$('#account-form'),summary=$('#account-amount-summary');if(!f||!summary)return;
+    if(draft.kind==='invoice_credit_note'){
+      const amount=Number(f.elements.amount?.value||0),applied=Math.min(amount,draft.row.balance);
+      summary.textContent=`Aplicar a factura ${draft.row.folio}: ${money(applied)} · Saldo de factura después: ${money(draft.row.balance-applied)} · Nuevo saldo a favor por esta NC: ${money(amount-applied)}`;
+      return;
+    }
     const applied=[...f.querySelectorAll('[data-ac-allocation]')].reduce((sum,input)=>sum+Number(input.value||0),0);
     const total=draft.kind==='apply'?draft.row.available:Number(f.elements.amount?.value||0);
     summary.textContent=`Aplicado: ${money(applied)} · Queda disponible: ${money(total-applied)}`;
@@ -74,6 +86,11 @@ window.OvejaSupplierAccount=(()=>{
   async function upload(entryId,file){
     return supplierFileUpload(`/api/suppliers/account-entries/${entryId}/files`,file);
   }
+  const encode=file=>new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(String(reader.result).split(',')[1]);reader.onerror=()=>reject(Error('No se pudo leer la nota adjunta.'));reader.readAsDataURL(file);});
+  function pendingNote(){
+    const p=draft.pending,r=draft.row;
+    modal('Confirmar resultado de la nota',view.supplier.name,`<form id="account-form"><div id="form-error" class="error hidden" role="alert"></div><p>El servidor todavía no confirmó el resultado. Se conserva la misma solicitud para evitar duplicados.</p><p>Factura ${e(r.folio)} · Nota ${e(p.folio)} · ${money(p.amount)} · ${e(p.occurred_on)}</p><p>${e(p.notes)}</p><p>${p.proof?'Documento conservado: '+e(p.proof.name):'Sin documento adjunto.'}</p><div class="ap-actions"><button type="submit" class="button primary">Reintentar la misma nota</button>${button('Volver a cartola','back')}</div></form>`,'','CUENTA CORRIENTE');
+  }
   async function submit(f){
     if(busy||!allowed())return;busy=true;state.saving=true;const auth=authGeneration,current=draft;
     const buttons=[...f.querySelectorAll('button')];buttons.forEach(b=>b.disabled=true);
@@ -81,7 +98,14 @@ window.OvejaSupplierAccount=(()=>{
       const values=Object.fromEntries(new FormData(f)),{kind,row}=current;
       let path,body,result,message='Guardado en la cuenta corriente.';
       const applications=[...f.querySelectorAll('[data-ac-allocation]')].filter(el=>Number(el.value)>0).map(el=>{const invoice=view.invoices.find(r=>r.id===Number(el.dataset.acAllocation));return {invoice_id:invoice.id,version:invoice.version,amount:Number(el.value)};});
-      if(kind==='attach'){await upload(row.id,f.elements.file.files[0]);}
+      if(kind==='invoice_credit_note'){
+        path='/api/suppliers/account-invoice-credit-notes';
+        body=current.pending||{supplier_id:supplierId,origin_invoice_id:row.id,origin_version:row.version,currency:'CLP',folio:values.folio,amount:Number(values.amount),occurred_on:values.occurred_on,notes:values.notes,confirmed:f.elements.confirmed.checked};
+        const file=f.elements.file?.files[0];
+        if(!current.pending&&file){if(!file.size||file.size>8*1024*1024)throw Error('Selecciona un documento de hasta 8 MB.');body.proof={name:file.name,base64:await encode(file)};}
+        if(auth!==authGeneration||!allowed())return;
+        current.pending=body;
+      }else if(kind==='attach'){await upload(row.id,f.elements.file.files[0]);}
       else if(kind==='payment'||kind==='credit_note'){
         path='/api/suppliers/'+(kind==='payment'?'account-payments':'account-credit-notes');
         body={supplier_id:supplierId,currency:'CLP',amount:Number(values.amount),occurred_on:values.occurred_on,reference:values.reference,notes:values.notes,confirmed:f.elements.confirmed.checked,applications};
@@ -93,16 +117,30 @@ window.OvejaSupplierAccount=(()=>{
         body={version:row.version,reason:values.reason,invoices:[...invoices].map(([id,version])=>({id,version}))};
       }else{path=`/api/suppliers/account-applications/${row.application.id}/void`;body={version:row.version,invoice_version:row.application.invoice_version,reason:values.reason};}
       if(path){
-        const signature=JSON.stringify([path,body]);let request=requests.get(f);
-        if(request?.signature!==signature){request={signature,id:crypto.randomUUID()};requests.set(f,request);}
+        const signature=JSON.stringify([path,body]);let request=kind==='invoice_credit_note'?current.request:requests.get(f);
+        if(request?.signature!==signature){request={signature,id:crypto.randomUUID()};if(kind==='invoice_credit_note')current.request=request;else requests.set(f,request);}
+        if(kind==='invoice_credit_note')current.sending=true;
         result=await api(path,'POST',{...body,request_id:request.id});
+        if(kind==='invoice_credit_note'){
+          if(!Number.isInteger(result.id)||(body.proof&&!Number.isInteger(result.file_id)))throw Error('No se confirmó el registro completo. Reintenta la misma nota.');
+          current.sending=false;current.uncertain=false;
+          message=`Nota ${result.folio} registrada. Aplicada: ${money(result.applied)} · Nuevo saldo a favor: ${money(result.available)}.`;
+        }
       }
       if(result?.id&&(kind==='payment'||kind==='credit_note')&&f.elements.file?.files[0]){
         try{await upload(result.id,f.elements.file.files[0]);}catch(err){message='Registro guardado. Falta adjuntar el documento: '+err.message;}
       }
       if(auth!==authGeneration||!allowed())return;
       await window.OvejaPayables.refresh();await open(supplierId);toast(message);
-    }catch(err){if(auth===authGeneration)showFormError(err.message);}
+    }catch(err){
+      if(current.kind==='invoice_credit_note'){
+        const definite=err.status>=400&&err.status<500&&err.status!==408;
+        current.uncertain=!!current.sending&&!definite;
+        if(!current.uncertain){current.pending=null;current.sending=false;if(auth===authGeneration){for(const el of f.elements)el.disabled=false;const submit=f.querySelector('[type="submit"]');if(submit)submit.textContent='Guardar';}}
+        if(auth===authGeneration&&current.uncertain){for(const el of f.elements)if(el.tagName!=='BUTTON')el.disabled=true;const submit=f.querySelector('[type="submit"]');if(submit)submit.textContent='Reintentar la misma nota';}
+      }
+      if(auth===authGeneration)showFormError(err.message);
+    }
     finally{busy=false;state.saving=false;buttons.forEach(b=>b.disabled=false);}
   }
   document.addEventListener('submit',event=>{
@@ -120,7 +158,9 @@ window.OvejaSupplierAccount=(()=>{
     const b=event.target.closest('[data-ac]');if(!b||!allowed()||busy)return;
     const action=b.dataset.ac,id=b.dataset.id;
     try{
+      if(draft?.uncertain){pendingNote();return;}
       if(action==='open')await open(id);
+      else if(action==='invoice-note'){await open(b.dataset.supplier);form('invoice_credit_note',id);}
       else if(action==='refresh'||action==='back')await open(supplierId);
       else if(action==='new-payment')form('payment');
       else if(action==='new-note')form('credit_note');

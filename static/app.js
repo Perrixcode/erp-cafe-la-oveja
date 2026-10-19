@@ -81,12 +81,12 @@ let pendingNotices=[], noticePolling=false, notificationAudio=null, soundEnabled
 
 async function responsePayload(response, upload=false) {
   const uncertain=upload?'No se pudo confirmar la carga. Conserva el mismo archivo y vuelve a intentar; un archivo ya guardado no se duplica.':'El servidor no confirmó la operación. Revisa el estado antes de volver a intentar.';
-  if(response.status===413)throw new Error(upload?'El servidor rechazó el tamaño del archivo. El máximo es 8 MB; si pesa menos, informa este error al administrador.':'La solicitud supera el tamaño permitido.');
+  if(response.status===413){const error=new Error(upload?'El servidor rechazó el tamaño del archivo. El máximo es 8 MB; si pesa menos, informa este error al administrador.':'La solicitud supera el tamaño permitido.');error.status=413;throw error;}
   const fallback=response.status===401?'Tu sesión terminó. Ingresa nuevamente.':uncertain+' (HTTP '+response.status+')';
   let value;
   try{value=JSON.parse(await response.text());}catch{throw new Error(fallback);}
   if(!value||typeof value!=='object')throw new Error(fallback);
-  if(!response.ok){const error=new Error(typeof value.error==='string'?value.error:fallback);if(response.status===409&&value.historical_duplicate)error.historical_duplicate=value.historical_duplicate;throw error;}
+  if(!response.ok){const error=new Error(typeof value.error==='string'?value.error:fallback);error.status=response.status;if(response.status===409&&value.historical_duplicate)error.historical_duplicate=value.historical_duplicate;throw error;}
   return value;
 }
 
