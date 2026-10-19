@@ -30,7 +30,7 @@ window.OvejaCashierV2Server=(()=>{
   s.requires_comment=s.difference!=null&&s.difference!==0||s.terminals.some(t=>t.difference!=null&&t.difference!==0);return s;
  }
  class Model {
-  constructor(value,controller){this.current=enrich(value);this.controller=controller;this.sequence=0;this.savedSequence=0;this.queue=Promise.resolve();this.attempts=new Map();this.signature=null;this.denominations=controller.data.denominations;}
+  constructor(value,controller){this.current=enrich(value);this.controller=controller;this.sequence=0;this.savedSequence=0;this.queue=Promise.resolve();this.attempts=new Map();this.pendingSave=null;this.signature=null;this.denominations=controller.data.denominations;}
   snapshot(){return clone(this.current);}
   exportState(){return {drafts:[this.snapshot()]};}
   summary(){return localSummary(this.current);}
@@ -49,11 +49,21 @@ window.OvejaCashierV2Server=(()=>{
   }
   async save(){return this.run(async()=>{
    if(this.current.status!=='draft')return this.snapshot();
-   while(this.savedSequence!==this.sequence){
-    const seq=this.sequence,proposed=declaration(this.current);this.controller.status('Guardando en el servidor…');
-    const saved=await this.request('save',{declaration:proposed});
+   while(this.pendingSave||this.savedSequence!==this.sequence){
+    // Resolve an uncertain save using its original identity and payload before
+    // sending later edits. Its reply advances the version, not the newer inputs.
+    if(!this.pendingSave)this.pendingSave={sequence:this.sequence,body:{request_id:uid(),version:this.current.version,confirmed:true,declaration:declaration(this.current)}};
+    const attempt=this.pendingSave,seq=attempt.sequence;this.controller.status('Guardando en el servidor…');
+    let saved;
+    try{saved=await api(prefix+'/'+this.current.id+'/save',attempt.body);}catch(e){
+     // A definite validation/conflict error permits a corrected proposal, but
+     // never advances the version or reports success. Auth/throttling may hide
+     // a previously committed attempt, so keep its identity for a later retry.
+     if(e.status>=400&&e.status<500&&![401,403,408,429].includes(e.status))this.pendingSave=null;
+     throw e;
+    }
     if(seq===this.sequence)this.current=enrich(saved);else{this.current.version=saved.version;this.current.revision=saved.revision;this.current.identity.counted_at=saved.identity.counted_at;}
-    this.savedSequence=seq;
+    this.savedSequence=seq;this.pendingSave=null;
    }
    this.controller.status('Guardado en el servidor · versión '+this.current.version);return this.snapshot();
   });}
