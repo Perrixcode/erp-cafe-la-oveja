@@ -89,7 +89,7 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
             frame_ancestors="'self'" if content_type.startswith('application/pdf') else "'none'"
-            self.send_header("Content-Security-Policy", f"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors {frame_ancestors}; form-action 'self'")
+            self.send_header("Content-Security-Policy", f"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors {frame_ancestors}; form-action 'self'")
             self.end_headers()
             self.wfile.write(payload)
 
@@ -376,6 +376,7 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                 assets['/technical-sheets.js'] = ('technical-sheets.js', 'text/javascript')
                 assets['/technical-sheets.css'] = ('technical-sheets.css', 'text/css')
                 assets.update({'/payables.js': ('payables.js', 'text/javascript'), '/payables.css': ('payables.css', 'text/css')})
+                assets.update({'/payment-receipts.js': ('payment-receipts.js', 'text/javascript'), '/payment-receipts.css': ('payment-receipts.css', 'text/css')})
                 if path in assets:
                     name, kind = assets[path]
                     return self.send(200, (ROOT / "static" / name).read_bytes(), kind + "; charset=utf-8")

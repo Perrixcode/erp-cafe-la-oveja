@@ -500,6 +500,9 @@ def attach(store, invoice_id, payment_id, content, filename, actor):
 
 
 def handle(handler, store, path, query, actor):
+    if path.startswith('/api/suppliers/payment-receipts'):
+        from erp import payment_receipts
+        return payment_receipts.handle(handler,store,path,query)
     if path=='/api/suppliers/documents' or path.startswith('/api/suppliers/documents/'):
         from erp import document_intake
         return document_intake.handle(handler,store,path,query,actor)
