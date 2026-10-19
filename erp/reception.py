@@ -18,6 +18,25 @@ def linked_order(db,key):
     return row[0] if row else None
 
 
+def reader_review_pending(received,details):
+    """La decisión local puede resolver una clasificación antigua del lector.
+
+    La proyección vive en otra base y puede seguir en needs_review hasta la
+    próxima lectura (o recibir tarde el resultado de una lectura en curso).
+    Solo el agendamiento explícito del mismo pedido resuelve estos motivos;
+    los conflictos financieros, de productos o desconocidos siguen visibles.
+    No se modifica la evidencia ni el estado de entrega del pedido.
+    """
+    scheduling=received.get('scheduling') or {}
+    if scheduling.get('status')!='needs_review':return False
+    decision=details.get('decision') or {}
+    scheduled_here=bool(details.get('order_id') and decision.get('decision')=='scheduled'
+                        and decision.get('order_id')==details['order_id'])
+    resolved_by_scheduling={'classified_immediate','manual_review_required',
+                            'comment_requires_review','web_delivery_contract_requires_review'}
+    return not (scheduled_here and scheduling.get('reason') in resolved_by_scheduling)
+
+
 def event(store,db,key,action,actor,reason,before,after,order_id=None):
     order_id=order_id or linked_order(db,key)
     db.execute('INSERT INTO reception_events(source_id,order_id,action,actor,reason,occurred_at,before_json,after_json) VALUES(?,?,?,?,?,?,?,?)',

@@ -48,7 +48,7 @@ def inbox_view(path,store=None):
         elif decision=='immediate' or (alert.get('state')=='cancelled' and alert.get('resolution')=='cancel'):
             reviewed.append(order)
         elif details.get('order_id') or order.get('scheduling',{}).get('status')=='scheduled' or order.get('key') in linked:
-            if order.get('scheduling',{}).get('status')=='needs_review':pending.append(order)
+            if reception.reader_review_pending(order,details):pending.append(order)
             else:scheduled+=1
         else:pending.append(order)
     result.update(orders=pending,reviewed_orders=reviewed,pending_orders=len(pending),scheduled_orders=scheduled)
