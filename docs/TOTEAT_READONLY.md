@@ -124,7 +124,7 @@ La estructura recibida solo confirma una respuesta JSON; no demuestra que sea un
 
 Boletas: FiscalDocuments estaba deshabilitado en la referencia; no se activa ni consulta en esta entrega. Falta confirmar si devuelve PDF, enlaces o solo metadatos. Nunca fabricar una URL. Los documentos de la demo permanecen pendientes.
 
-Notificaciones WhatsApp a Esteban: requisito conservado para la siguiente etapa; definir destino y autorización de envío. Hoy los eventos se consultan con `Store.notifications()` y el historial; no hay despachador externo activo.
+Notificaciones WhatsApp a Socio: requisito conservado para la siguiente etapa; definir destino y autorización de envío. Hoy los eventos se consultan con `Store.notifications()` y el historial; no hay despachador externo activo.
 
 ## Vista previa del catálogo
 

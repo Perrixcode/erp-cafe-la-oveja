@@ -104,11 +104,19 @@ def whatsapp_product(flavor, size):
     return f"{flavor} *{label}*"
 
 
-def whatsapp(orders, start, end, stock=None):
+
+def whatsapp_item_line(order, item):
+    product = whatsapp_product(item['flavor'], item['size'])
+    hour = order['pickup_at'].split('T')[1]
+    channel = {'Instagram': 'IG', 'Presencial': 'Local', 'Web/Mercat': 'Web'}.get(order['channel'], order['channel'])
+    return f"{product} - {order['customer']} - {hour} hrs - {channel}"
+
+
+def whatsapp(orders, start, end, stock=None, *, include_weekends=False):
     # Formato de copia solamente: no envía mensajes ni cambia stock o pedidos.
     first, last = date.fromisoformat(start), date.fromisoformat(end)
     days = [first + timedelta(days=n) for n in range((last - first).days + 1)
-            if (first + timedelta(days=n)).weekday() < 5]
+            if include_weekends or (first + timedelta(days=n)).weekday() < 5]
     heading_first, heading_last = (days[0], days[-1]) if days else (first, last)
     lines = ["PRODUCTOS POR MARCAR;", f"SEMANA: {heading_first:%d/%m} - {heading_last:%d/%m}"]
     allowed_days = {day.isoformat() for day in days}
@@ -116,19 +124,16 @@ def whatsapp(orders, start, end, stock=None):
                       key=lambda order: order["pickup_at"])
     pending = defaultdict(list)
     summary = {}  # Orden de primera aparición en el período, sin cambiar summarize().
-    channels = {"Instagram": "IG", "Presencial": "Local", "Web/Mercat": "Web"}
     for order, item in flatten(selected):
         key = (item["flavor"], item["size"])
         if item["status"] in OUTSTANDING:
             summary[key] = summary.get(key, 0) + item["quantity"]
         if item["status"] in TO_MARK:
-            day, hour = order["pickup_at"].split("T")
-            product = whatsapp_product(*key)
-            channel = channels.get(order["channel"], order["channel"])
-            line = f"{product} - {order['customer']} - {hour} hrs - {channel}"
+            day = order["pickup_at"].split("T")[0]
+            line = whatsapp_item_line(order, item)
             # Una línea por torta conserva cantidades sin agregar un formato ajeno.
             pending[day].extend([line] * item["quantity"])
-    weekdays = ("LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES")
+    weekdays = ("LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO", "DOMINGO")
     for day in days:
         lines.extend(["", f"*{weekdays[day.weekday()]} {day:%d/%m}*", ""])
         lines.extend(pending[day.isoformat()] or ["“”"])

@@ -55,7 +55,7 @@ def inbox_view(path,store=None):
     return result
 
 
-def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPRequestHandler):
+def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPRequestHandler, bag_access_enabled=False):
     reader_path = ROOT/'private/toteat-reader.sqlite3' if store.path.resolve() == (ROOT/'data/erp-demo.sqlite3').resolve() else store.path.parent/'toteat-reader.sqlite3'
     if data_root:reader_path=Path(data_root)/'private/toteat-reader.sqlite3'
     if public_origin:
@@ -63,8 +63,17 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
         if parsed_origin.scheme!='https' or not parsed_origin.hostname or parsed_origin.path or parsed_origin.query or parsed_origin.fragment or parsed_origin.username:
             raise ValueError('Configure an exact HTTPS origin without path.')
     partners = PartnerAuth(reader_path.parent/'partner-auth.sqlite3')
+    from erp import cash_bags, cash_control, cash_closures
+    cash_bags.initialize(store)
+    cash_control.initialize(store)
+    cash_closures.initialize(store)
+    access=None
+    if bag_access_enabled:
+        from erp.bag_access import BagAccess
+        access=BagAccess(store)
     class Handler(transport):
         server_version = "OvejaLocal/0.1"
+        bag_access_available = bag_access_enabled
 
         def send(self, status, payload, content_type="application/json; charset=utf-8", extra_headers=None):
             if isinstance(payload, (dict, list)):
@@ -80,7 +89,7 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("Referrer-Policy", "no-referrer")
             frame_ancestors="'self'" if content_type.startswith('application/pdf') else "'none'"
-            self.send_header("Content-Security-Policy", f"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors {frame_ancestors}; form-action 'self'")
+            self.send_header("Content-Security-Policy", f"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors {frame_ancestors}; form-action 'self'")
             self.end_headers()
             self.wfile.write(payload)
 
@@ -92,7 +101,7 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
             if self.headers.get("Host") not in {f"127.0.0.1:{port}", f"localhost:{port}"}:
                 raise DomainError("Acceso permitido solo desde localhost.", 403)
 
-        def body(self):
+        def check_write_origin(self):
             self.check_host()
             expected = public_origin or "http://" + self.headers["Host"]
             origin = self.headers.get("Origin")
@@ -100,13 +109,16 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                 raise DomainError("Origen externo rechazado.", 403)
             if self.headers.get("X-ERP-Local") != "1":
                 raise DomainError("Falta encabezado de operación local.", 403)
+
+        def body(self, maximum=MAX_BODY):
+            self.check_write_origin()
             if self.headers.get("Content-Type", "").split(";")[0] != "application/json":
                 raise DomainError("Se requiere application/json.", 415)
             try:
                 length = int(self.headers.get("Content-Length", "0"))
             except ValueError:
                 raise DomainError("Tamaño no válido.") from None
-            if not 0 < length <= MAX_BODY:
+            if not 0 < length <= maximum:
                 raise DomainError("Solicitud vacía o demasiado grande.", 413)
             try:
                 data = json.loads(self.rfile.read(length))
@@ -122,6 +134,37 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
             path = parsed.path
             partner = None
             user = None
+            if path==cash_closures.PREFIX or path.startswith(cash_closures.PREFIX+'/'):
+                account=partners.session(self.headers.get('Cookie'))
+                identity_check=None
+                if not account and access:
+                    with store.connect() as db:limited=access.session_row(db,self.headers.get('Cookie'))
+                    if limited:
+                        account={'role':'bag_cashier','realm':'bag','username':limited['id'],'name':limited['name'],'shared':bool(limited['shared'])}
+                        identity_check=lambda db: (lambda r: bool(r and r['id']==account['username']))(access.session_row(db,self.headers.get('Cookie')))
+                if not account:raise DomainError('Inicia sesión para abrir tu cierre.',401)
+                if account.get('realm')!='bag':identity_check=lambda db: bool(partners.session(self.headers.get('Cookie')))
+                return cash_closures.handle(self,store,path,parse_qs(parsed.query),account,identity_check)
+            if access:
+                origin=public_origin or 'http://'+self.headers['Host']
+                if path=='/api/bag-access' or path.startswith('/api/bag-access/'):
+                    return access.route(self,path,parse_qs(parsed.query),origin)
+                if path=='/api/bag-cashiers':
+                    erp_user=partners.session(self.headers.get('Cookie'))
+                    actor=erp_user['username'] if erp_user and erp_user['role']=='partner' else access.require_admin(self.headers.get('Cookie'))
+                    if self.command=='GET':return self.send(200,access.management())
+                    if self.command=='POST':return self.send(200,access.manage(self.body(maximum=8192),actor,self.headers.get('Cookie')))
+                    raise DomainError('Método no permitido.',405)
+                query=parse_qs(parsed.query)
+                scanned=(path=='/' and query.get('module')==['cash'] and len(query.get('bag',[]))==1 and re.fullmatch(cash_bags.BAG_ID,query['bag'][0]))
+                if self.command=='GET' and scanned and not partners.session(self.headers.get('Cookie')):
+                    return self.send(200,(ROOT/'static/bag-entry.html').read_bytes(),'text/html; charset=utf-8',{'X-Robots-Tag':'noindex, nofollow, noarchive'})
+                if self.command=='GET' and path=='/bag-activate':
+                    return self.send(200,(ROOT/'static/bag-activate.html').read_bytes(),'text/html; charset=utf-8',{'X-Robots-Tag':'noindex, nofollow, noarchive'})
+                if self.command=='GET' and path=='/bag-cashiers':
+                    erp_user=partners.session(self.headers.get('Cookie'))
+                    if not erp_user or erp_user['role']!='partner':access.require_admin(self.headers.get('Cookie'))
+                    return self.send(200,(ROOT/'static/bag-cashiers.html').read_bytes(),'text/html; charset=utf-8')
             if path.startswith('/api/toteat/reception') or path == '/api/sos' or path.startswith('/api/sos/') or re.fullmatch(r'/api/orders/\d+/(schedule-without-payment|customer)', path):
                 partner = partners.session(self.headers.get('Cookie'))
                 if not partner or partner['role'] != 'partner':
@@ -130,15 +173,73 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
             public = {('GET','/api/health'),('GET','/api/partner/session'),('POST','/api/partner/login'),('POST','/api/partner/logout')}
             if path.startswith('/api/') and (self.command,path) not in public:
                 user = partners.authorize(self.headers.get('Cookie'), 'read')
+            if path=='/api/cash-insights' or path.startswith('/api/cash-insights/'):
+                from erp import cash_insights
+                def insights_identity():
+                    current=partners.session(self.headers.get('Cookie'))
+                    return bool(current and current.get('role')=='partner' and current.get('username')==user['username'])
+                return cash_insights.handle(self,store,path,parse_qs(parsed.query,keep_blank_values=True),user,insights_identity)
+            if path.startswith('/api/cash-control/'):
+                return cash_control.handle(self,store,path,parse_qs(parsed.query,keep_blank_values=True),user)
+            if path == '/api/cash-bags' or path.startswith('/api/cash-bags/'):
+                origin = public_origin or 'http://127.0.0.1:'+str(self.server.server_address[1])
+                return cash_bags.handle(self,store,path,parse_qs(parsed.query),user,origin)
+            if path == '/api/document-center' or path.startswith('/api/document-center/'):
+                from erp import document_center
+                return document_center.route(self,store,partners,Path(data_root) if data_root else ROOT,parsed,user)
+            if path == '/api/tasks' or path.startswith('/api/tasks/'):
+                from erp import task_assignment
+                account = partners.require(self.headers.get('Cookie'))
+                return task_assignment.handle(self, store, path, parse_qs(parsed.query), account['username'])
+            if path.startswith('/api/suppliers/'):
+                from erp import supplier_opening
+                account = partners.require(self.headers.get('Cookie'))
+                if self.command == 'GET' and path == '/api/suppliers/opening':
+                    return self.send(200, supplier_opening.view(store))
+                if self.command == 'POST' and path == '/api/suppliers/opening/annotations':
+                    return self.send(200, supplier_opening.annotate(store, self.body(), account['username']))
+                from erp import payables
+                return payables.handle(self, store, path, parse_qs(parsed.query), account['username'])
             if path.startswith('/api/delivery/'):
                 from erp import delivery_finance
                 account=partners.require(self.headers.get('Cookie'))
+                if self.command=='POST' and path=='/api/delivery/adjustments':
+                    from erp import delivery_adjustments
+                    return self.send(200,delivery_adjustments.create(store,self.body(),account['username']))
+                adjustment_void=re.fullmatch(r'/api/delivery/adjustments/([A-Za-z0-9_-]{12,100})/void',path)
+                if self.command=='POST' and adjustment_void:
+                    from erp import delivery_adjustments
+                    return self.send(200,delivery_adjustments.void(store,adjustment_void[1],self.body(),account['username']))
+                if self.command=='GET' and path in ('/api/delivery/summary','/api/delivery/summary.pdf','/api/delivery/summary.csv'):
+                    from erp import delivery_summary
+                    query=parse_qs(parsed.query,keep_blank_values=True)
+                    value=delivery_summary.view(store,query.get('month',[None])[0],query.get('driver',['all']))
+                    if path.endswith('.pdf') or path.endswith('.csv'):
+                        pdf=path.endswith('.pdf');extension='pdf' if pdf else 'csv'
+                        disposition='inline' if pdf and query.get('download')!=['1'] else 'attachment'
+                        content=delivery_summary.pdf(value) if pdf else delivery_summary.csv_bytes(value)
+                        return self.send(200,content,'application/pdf' if pdf else 'text/csv; charset=utf-8',
+                                         {'Content-Disposition':disposition+'; filename="resumen-repartidores-'+value['month']+'.'+extension+'"'})
+                    return self.send(200,value)
                 if self.command=='GET' and path in ('/api/delivery/chat','/api/delivery/chat/evidence'):
                     from erp import delivery_chat
                     query=parse_qs(parsed.query)
                     if path.endswith('/evidence'):
                         return self.send(200,delivery_chat.evidence(store,query.get('source',[None])[0],query.get('record',[None])[0],query.get('incident',[None])[0]))
                     return self.send(200,delivery_chat.view(store,query.get('month',[None])[0]))
+                if self.command=='GET' and path in ('/api/delivery/audit','/api/delivery/audit/document','/api/delivery/settlement','/api/delivery/settlement/pdf'):
+                    from erp import delivery_audit, delivery_settlement
+                    query=parse_qs(parsed.query,keep_blank_values=True); month=query.get('month',[None])[0]
+                    if path=='/api/delivery/audit':return self.send(200,delivery_audit.view(store,month))
+                    if path=='/api/delivery/audit/document':
+                        content,kind,extension=delivery_audit.document(store,month,query.get('id',[''])[0])
+                        disposition='attachment' if query.get('download')==['1'] or extension!='pdf' else 'inline'
+                        return self.send(200,content,kind,{'Content-Disposition':disposition+'; filename="informe-repartidor.'+extension+'"'})
+                    value=delivery_settlement.view(store,month,query.get('driver',['all']))
+                    if path.endswith('/pdf'):
+                        disposition='attachment' if query.get('download')==['1'] else 'inline'
+                        return self.send(200,delivery_settlement.pdf(value),'application/pdf',{'Content-Disposition':disposition+'; filename="liquidacion-provisional-'+value['month']+'.pdf"'})
+                    return self.send(200,value)
                 if self.command=='GET' and path=='/api/delivery/fees':
                     value=delivery_finance.view(store,parse_qs(parsed.query).get('month',[None])[0])
                     reader=read_inbox(reader_path,False)
@@ -147,7 +248,18 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                 if self.command=='POST' and path=='/api/delivery/refresh':
                     self.body()
                     return self.send(202,delivery_finance.request_refresh(store,account['username']))
+            if self.command=='POST' and path=='/api/whatsapp/copied':
+                from erp.marking_message import acknowledge
+                return self.send(200,acknowledge(store,user['username'],self.body()))
             if self.command == "GET":
+                if path == '/api/documents/salon/etiquetas-bolsas-000001-000020.pdf':
+                    destination='/api/document-center/documents/salon-etiquetas-bolsas-000001-000020/file'
+                    if parse_qs(parsed.query).get('download')==['1']:destination+='?download=1'
+                    return self.send(307,b'',extra_headers={'Location':destination})
+                if path == '/api/documents/salon/conteo-semanal-lunes-a-viernes.pdf':
+                    destination='/api/document-center/documents/salon-conteo-semanal/file'
+                    if parse_qs(parsed.query).get('download')==['1']:destination+='?download=1'
+                    return self.send(307,b'',extra_headers={'Location':destination})
                 transfer_photo=re.fullmatch(r'/api/transfers/(\d+)/photo',path)
                 if transfer_photo:
                     partners.require(self.headers.get('Cookie'))
@@ -196,6 +308,9 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                     return self.send(200,order)
                 if path == "/api/toteat":
                     return self.send(200,inbox_view(reader_path,store))
+                if path == '/api/whatsapp':
+                    from erp.marking_message import view as marking_message
+                    return self.send(200,marking_message(store,today(),parse_qs(parsed.query).get('scope',['operations'])[0],user['username']))
                 if path == "/api/health":
                     return self.send(200, {"ok": True, "service":"oveja-erp", "catalog_mode":"local", "authentication_required":True})
                 if path == "/api/board":
@@ -229,7 +344,38 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                 if match:
                     if store.get(int(match[1])).get('scheduling_status')=='draft':partners.require(self.headers.get('Cookie'))
                     return self.send(200, store.history(int(match[1])))
-                assets = {"/delivery-chat.js": ("delivery-chat.js", "text/javascript"), "/delivery.js": ("delivery.js", "text/javascript"), "/theme.css": ("theme.css", "text/css"), "/fonts/NotoSans.ttf": ("fonts/NotoSans.ttf", "font/ttf"),"/home.js": ("home.js", "text/javascript"),"/transfers.js": ("transfers.js", "text/javascript"),"/reception.js": ("reception.js", "text/javascript"),"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/notifications.js": ("notifications.js", "text/javascript"), "/styles.css": ("styles.css", "text/css")}
+                assets = {"/delivery-review.js": ("delivery-review.js", "text/javascript"), "/delivery-chat.js": ("delivery-chat.js", "text/javascript"), "/delivery.js": ("delivery.js", "text/javascript"), "/theme.css": ("theme.css", "text/css"), "/fonts/NotoSans.ttf": ("fonts/NotoSans.ttf", "font/ttf"),"/home.js": ("home.js", "text/javascript"),"/transfers.js": ("transfers.js", "text/javascript"),"/reception.js": ("reception.js", "text/javascript"),"/": ("index.html", "text/html"), "/app.js": ("app.js", "text/javascript"), "/notifications.js": ("notifications.js", "text/javascript"), "/styles.css": ("styles.css", "text/css")}
+                if access:
+                    assets.update({'/bag-activate.js':('bag-activate.js','text/javascript'),'/bag-entry.js':('bag-entry.js','text/javascript'),'/bag-access.css':('bag-access.css','text/css'),'/bag-cashiers.js':('bag-cashiers.js','text/javascript')})
+                assets['/stock-count.js'] = ('stock-count.js', 'text/javascript')
+                assets.update({'/cash-control.js':('cash-control.js','text/javascript'),'/cash-control.css':('cash-control.css','text/css')})
+                assets.update({'/cashier-v2.js':('cashier-v2.js','text/javascript'),'/cashier-v2.css':('cashier-v2.css','text/css'),'/cashier-v2-server.js':('cashier-v2-server.js','text/javascript')})
+                assets.update({'/cash-insights.js':('cash-insights.js','text/javascript'),'/cash-toteat.js':('cash-toteat.js','text/javascript'),'/cash-submit-review.js':('cash-submit-review.js','text/javascript'),'/cash-review.js':('cash-review.js','text/javascript'),'/cash-closures.js':('cash-closures.js','text/javascript'),'/cash-closures.css':('cash-closures.css','text/css')})
+                assets.update({'/cash-bags.js':('cash-bags.js','text/javascript'),'/cash-bags.css':('cash-bags.css','text/css')})
+                assets.update({'/tasks.js': ('tasks.js','text/javascript'), '/tasks.css': ('tasks.css','text/css'),
+                               '/tasks-print.js': ('tasks-print.js','text/javascript'), '/tasks-print.css': ('tasks-print.css','text/css')})
+                assets['/supplier-opening.js'] = ('supplier-opening.js', 'text/javascript')
+                assets['/date-range.js'] = ('date-range.js', 'text/javascript')
+                assets['/supplier-accounts.js'] = ('supplier-accounts.js', 'text/javascript')
+                assets['/supplier-accounts.css'] = ('supplier-accounts.css', 'text/css')
+                assets['/joint-payment.js'] = ('joint-payment.js', 'text/javascript')
+                assets['/supplier-account.js'] = ('supplier-account.js', 'text/javascript')
+                assets['/payment-proposal.js'] = ('payment-proposal.js', 'text/javascript')
+                assets['/supplier-directory.js'] = ('supplier-directory.js', 'text/javascript')
+                assets['/supply-planning.js'] = ('supply-planning.js', 'text/javascript')
+                assets['/document-intake.js'] = ('document-intake.js', 'text/javascript')
+                assets['/purchase-agenda.js'] = ('purchase-agenda.js', 'text/javascript')
+                assets['/image-attachment.js'] = ('image-attachment.js', 'text/javascript')
+                assets['/procurement.js'] = ('procurement.js', 'text/javascript')
+                assets['/procurement.css'] = ('procurement.css', 'text/css')
+                assets['/workspace.css'] = ('workspace.css', 'text/css')
+                assets['/design-system.css'] = ('design-system.css', 'text/css')
+                assets['/loading-state.js'] = ('loading-state.js', 'text/javascript')
+                assets['/document-center.js'] = ('document-center.js', 'text/javascript')
+                assets['/document-center.css'] = ('document-center.css', 'text/css')
+                assets['/technical-sheets.js'] = ('technical-sheets.js', 'text/javascript')
+                assets['/technical-sheets.css'] = ('technical-sheets.css', 'text/css')
+                assets.update({'/payables.js': ('payables.js', 'text/javascript'), '/payables.css': ('payables.css', 'text/css')})
                 if path in assets:
                     name, kind = assets[path]
                     return self.send(200, (ROOT / "static" / name).read_bytes(), kind + "; charset=utf-8")
@@ -250,7 +396,7 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                     # La identidad para el historial nunca procede del formulario.
                     data['actor'] = user['username']
                     permission = None
-                    if path == '/api/stock': permission = 'stock'
+                    if path in ('/api/stock','/api/stock/batch'): permission = 'stock'
                     elif path == '/api/recipes': permission = 'recipe'
                     elif path.startswith('/api/simulations') or path == '/api/orders': permission = 'simulate'
                     elif re.fullmatch(r'/api/orders/\d+',path): permission = 'correct'
@@ -264,7 +410,7 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                         return self.send(201,reception.schedule(store,received,data.get('order'),partner,data.get('reason'),data.get('request_id'),data.get('revision')))
                     if path.endswith('/resolve'):
                         return self.send(200,reception.resolve_alert(store,received['key'],partner,data.get('reason'),data.get('version'),data.get('decision')))
-                    return self.send(200,reception.decide(store,received,data.get('decision'),partner,data.get('reason'),data.get('revision')))
+                    return self.send(200,reception.decide(store,received,data.get('decision'),partner,data.get('reason'),data.get('revision'),data.get('confirmation')))
                 if path in ('/api/sos/orders','/api/sos/reconcile') and self.command=='POST':
                     received=None
                     if data.get('source_key'):
@@ -289,6 +435,8 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
                     return self.send(200,store.update_customer(int(customer[1]),data.get('customer'),partner,data.get('reason'),data.get('version')))
                 if path == "/api/stock" and self.command == "PUT":
                     return self.send(200, store.update_stock(data.get("stock"), data.get("actor"), data.get("reason"), data.get("version")))
+                if path == '/api/stock/batch' and self.command == 'PUT':
+                    return self.send(200, {'rows':store.update_stock_batch(data.get('entries'),data.get('actor'),data.get('reason'))})
                 if path == "/api/recipes" and self.command == "PUT":
                     return self.send(200, store.update_recipe(data.get("sku"),data.get("bases"),data.get("actor"),data.get("reason"),data.get("version")))
                 if path == "/api/simulations" and self.command == "POST":
@@ -310,7 +458,13 @@ def handler_for(store, data_root=None, public_origin=None, transport=BaseHTTPReq
             try:
                 self.dispatch()
             except DomainError as error:
-                self.send(error.status, {"error": str(error)})
+                payload = {"error": str(error)}
+                if getattr(error, 'field_errors', None):
+                    payload['field_errors'] = error.field_errors
+                from erp.payable_duplicates import HistoricalIdentityWarning
+                if isinstance(error, HistoricalIdentityWarning):
+                    payload['historical_duplicate'] = error.historical_duplicate
+                self.send(error.status, payload)
             except Exception:
                 # No revelar payloads ni trazas en la respuesta del navegador.
                 self.send(500, {"error": "No se pudo completar la operación local. Revisa el servidor."})

@@ -2,20 +2,23 @@
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const escapeHTML = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+document.body.classList.add('boot-pending');
 const state = {board: null, date: '', period: 'day', filter: 'all', deliveryFilter: 'all', search: '', editing: null, detail: null, transition: null, request: 0, end: '', panelRequest: 0, saving: false, role: '', productionScope: '', scope:'operations', view:'agenda', partner:null, user:null, module:'home', moduleSection:'',commentDisclosure:new Map()};
 const modules={
+  cash:{name:'Control de caja',icon:'▤',sections:['Resumen','Conciliación','Análisis','Cierres','Entregas','Movimientos']},
   home:{name:'Inicio',icon:'⌂',sections:[]},
   people:{name:'Gestión de personas',icon:'♧',sections:['Colaboradores','Contratos y anexos','Permisos','Vacaciones','Licencias médicas','Liquidaciones','Incorporaciones y desvinculaciones','Capacitaciones','Vencimientos']},
-  documents:{name:'Documentos y procedimientos',icon:'▤',sections:['Formatos','Checklists','Reglamento interno','Protocolos','Manuales','Control de versiones','Constancias de lectura']},
-  suppliers:{name:'Gestión de proveedores',icon:'▧',sections:['Proveedores','Facturas','Pagos','Programación semanal de pagos']},
+  tasks:{name:'Asignador de tareas',icon:'☷',sections:['Cocina','Salón']},
+  documents:{name:'Documentos y procedimientos',icon:'▤',sections:['Salón','Formatos','Checklists','Reglamento interno','Protocolos','Manuales','Control de versiones','Constancias de lectura']},
+  suppliers:{name:'Compras y proveedores',icon:'▧',sections:['Panel principal','Facturas','Cuentas corrientes','Proveedores','Precios y conciliación','Compras sugeridas','Agenda de pedidos','Pedidos y recepción','Insumos y unidades','Movimientos de insumos','Dashboard']},
   cakes:{name:'Pedidos de tortas',icon:'▦',sections:[]},
-  delivery:{name:'Despacho y reparto',icon:'↗',sections:['Montos diarios','Registro de repartos','Asignación de pedidos','Seguimiento GPS','Tarifas de reparto','Recaudación por cliente','Liquidación de repartos','Repartidores y zonas']},
+  delivery:{name:'Despacho y reparto',icon:'↗',sections:['Montos diarios','Registro de repartos','Analítica de repartos','Conciliación de repartos','Asignación de pedidos','Seguimiento GPS','Tarifas de reparto','Recaudación por cliente','Liquidación de repartidores','Repartidores y zonas']},
   shifts:{name:'Planificación de turnos',icon:'◷',sections:['Calendario de turnos','Asignación de equipo','Horas planificadas','Cambios y ausencias']},
   attendance:{name:'Control de asistencia',icon:'◴',sections:['Integración GeoVictoria','Marcaciones','Horas trabajadas','Diferencias y revisión']},
   transfers:{name:'Conciliación de transferencias',icon:'⇄',sections:['Transferencias del local','Cierres diarios','Estado del bot','Conciliación','Comprobantes','Historial']},
   inventory:{name:'Inventario y abastecimiento',icon:'▤',sections:['Existencias','Movimientos','Pedidos sugeridos','Compras','Mermas','Reserva para vitrina']},
-  production:{name:'Producción',icon:'◷',sections:['Planificación','Recetas y bases']},
-  catalog:{name:'Catálogo y proveedores',icon:'◇',sections:['Productos','Formatos','Proveedores']},
+  production:{name:'Producción',icon:'◷',sections:['Fichas técnicas','Planificación','Recetas y bases']},
+  catalog:{name:'Productos y formatos',icon:'◇',sections:['Productos','Formatos']},
   reports:{name:'Analítica y reportes',icon:'▥',sections:['Panel ejecutivo','Rentabilidad por producto','Venta conjunta','Demanda por día y horario','Precios y promociones','Canales y reparto','Inventario y mermas','Clientes y recompra','Productividad operativa','Proyección de demanda','Calidad de datos','Power BI','Reportes']},
   costs:{name:'Costos y rentabilidad',icon:'◈',sections:['Costos de recetas','Márgenes por producto','Evolución de costos']},
   customers:{name:'Gestión de clientes',icon:'○',sections:['Directorio','Historial de pedidos','Preferencias de entrega']},
@@ -29,6 +32,35 @@ for (const [key, allowed] of [['scope',['operations','tests','archived']],['view
 }
 if(modules[initialView.get('module')])state.module=initialView.get('module');
 if(modules[state.module].sections.includes(initialView.get('section')))state.moduleSection=initialView.get('section');
+if(state.module==='cash'&&initialView.has('bag'))state.moduleSection='Entregas';
+if(state.module==='suppliers'&&['Pagos','Comprobantes','Programación semanal de pagos'].includes(initialView.get('section')))state.moduleSection='Facturas';
+if(state.module==='catalog'&&initialView.get('section')==='Proveedores'){state.module='suppliers';state.moduleSection='Proveedores';}
+const navigationAreas=[
+  {id:'sales',name:'Ventas y entregas',icon:'↗',modules:['cakes','delivery','customers']},
+  {id:'operations',name:'Inventario y producción',icon:'▤',modules:['inventory','catalog','production','maintenance']},
+  {id:'finance',name:'Finanzas y reportes',icon:'⇄',modules:['cash','transfers','costs','reports']},
+  {id:'team',name:'Equipo y documentos',icon:'♧',modules:['people','tasks','shifts','attendance','documents']}
+];
+function navIcon(key){
+  const paths={home:'M3 10 12 3l9 7M5 9v12h5v-7h4v7h5V9',suppliers:'M3 4h2l3 12h10l3-8H6M9 21h.01M18 21h.01',sales:'M4 5h16v14H4zM8 9h8M8 13h5',operations:'M3 7l9-4 9 4v13H3zM8 20v-8h8v8',finance:'M4 4h16v16H4zM8 16v-3M12 16V8M16 16v-5',team:'M16 21v-3a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v3M9 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6M18 8a3 3 0 0 1 0 6M22 21v-3a4 4 0 0 0-3-4',default:'M5 3h10l4 4v14H5zM15 3v5h4M8 12h8M8 16h6'};
+  return `<svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[key]||paths.default}"/></svg>`;
+}
+const navigationModuleButton=key=>{const value=modules[key];return `<button type="button" class="module-tab ${state.module===key?'selected':''}" data-module="${key}" aria-current="${state.module===key?'page':'false'}">${navIcon(key)}<span>${escapeHTML(value.name)}</span>${!['home','cakes','transfers','delivery','suppliers','tasks','documents','cash'].includes(key)?'<small>En preparación</small>':''}</button>`;};
+let renderedNavigationModule='', navigationArea='';
+function renderNavigation(moduleButton){
+  const currentArea=navigationAreas.find(area=>area.modules.includes(state.module))?.id||state.module;
+  if(renderedNavigationModule!==state.module||!navigationArea)navigationArea=currentArea;
+  const rail=[{id:'home',name:'Inicio'},{id:'sales',name:'Ventas y entregas'},{id:'suppliers',name:'Compras y proveedores'},...navigationAreas.slice(1)];
+  const area=navigationAreas.find(area=>area.id===navigationArea);
+  const keys=area?.modules||[navigationArea];
+  const section=modules[state.module].sections.includes(state.moduleSection)?state.moduleSection:modules[state.module].sections[0];
+  const sections=key=>key===state.module?`<div class="context-sections" aria-label="Secciones de ${escapeHTML(modules[key].name)}">${modules[key].sections.map(value=>`<button type="button" data-module-section="${escapeHTML(value)}" aria-current="${value===section?'page':'false'}">${escapeHTML(value)}</button>`).join('')}</div>`:'';
+  $('#module-sidebar').innerHTML=`<div class="navigation-rail" aria-label="Áreas de trabajo">${rail.map(item=>`<button type="button" data-nav-area="${item.id}" aria-label="${item.name}" title="${item.name}" aria-pressed="${item.id===navigationArea}" class="rail-button">${navIcon(item.id)}<span class="rail-tooltip">${item.name}</span></button>`).join('')}</div><div class="navigation-context"><a href="/" class="context-brand" aria-label="OVEJA, inicio">OVEJA<span>Gestión</span></a><div class="context-caption">${escapeHTML(area?.name||modules[navigationArea].name)}</div>${keys.map(key=>moduleButton(key)+sections(key)).join('')}<div class="context-footer">ERP · Cocina y Café</div></div>`;
+  const mobile=$('#module-mobile'),open=mobile.querySelector(':scope > details')?.open;
+  const group=area=>`<details class="module-area" ${area.modules.includes(state.module)?'open':''}><summary>${navIcon(area.id)}<span>${escapeHTML(area.name)}</span><span class="module-chevron" aria-hidden="true">›</span></summary><div class="module-area-children">${area.modules.map(moduleButton).join('')}</div></details>`;
+  mobile.innerHTML=`<details ${open?'open':''}><summary>${navIcon(currentArea)}<span>${escapeHTML(modules[state.module].name)}</span><small>Cambiar área</small></summary><div class="module-mobile-options">${moduleButton('home')+group(navigationAreas[0])+moduleButton('suppliers')+navigationAreas.slice(1).map(group).join('')}</div></details>`;
+  renderedNavigationModule=state.module;
+}
 for (const key of ['date','end']) if (/^\d{4}-\d{2}-\d{2}$/.test(initialView.get(key)||'')) state[key]=initialView.get(key);
 $('#record-scope').value=state.scope; $('#period').value=state.period; $('#end-date').value=state.end;
 $('#custom-range').classList.toggle('hidden',state.period!=='custom');
@@ -47,26 +79,70 @@ let noticeSequence=0, acceptedNoticeSequence=0, noticeScope='', noticeTracker=nu
 let pendingNotices=[], noticePolling=false, notificationAudio=null, soundEnabled=false;
 
 
-async function api(path, method = 'GET', body) {
-  const generation=authGeneration;
-  const response = await fetch(path, {method, headers: method === 'GET' ? {} : {'Content-Type':'application/json','X-ERP-Local':'1'}, body: body ? JSON.stringify(body) : undefined});
-  const data = await response.json();
-  if(!path.startsWith('/api/partner/') && generation!==authGeneration) throw new Error('La sesión cambió.');
-  if(response.status===401 && !path.endsWith('/login')) lockAccess('Tu sesión terminó. Ingresa nuevamente.');
-  if (!response.ok) throw new Error(data.error || 'No se pudo completar la operación.');
-  return data;
+async function responsePayload(response, upload=false) {
+  const uncertain=upload?'No se pudo confirmar la carga. Conserva el mismo archivo y vuelve a intentar; un archivo ya guardado no se duplica.':'El servidor no confirmó la operación. Revisa el estado antes de volver a intentar.';
+  if(response.status===413)throw new Error(upload?'El servidor rechazó el tamaño del archivo. El máximo es 8 MB; si pesa menos, informa este error al administrador.':'La solicitud supera el tamaño permitido.');
+  const fallback=response.status===401?'Tu sesión terminó. Ingresa nuevamente.':uncertain+' (HTTP '+response.status+')';
+  let value;
+  try{value=JSON.parse(await response.text());}catch{throw new Error(fallback);}
+  if(!value||typeof value!=='object')throw new Error(fallback);
+  if(!response.ok){const error=new Error(typeof value.error==='string'?value.error:fallback);if(response.status===409&&value.historical_duplicate)error.historical_duplicate=value.historical_duplicate;throw error;}
+  return value;
 }
+
+async function supplierFileUpload(path,file) {
+  if(!file||!file.size||file.size>8388608)throw new Error('Elige un archivo de hasta 8 MB.');
+  const generation=authGeneration;
+  let response;
+  try{response=await fetch(path,{method:'POST',headers:{'X-ERP-Local':'1','X-File-Name':encodeURIComponent(file.name),'Content-Type':file.type||'application/octet-stream'},body:file});}
+  catch{throw new Error('La conexión se interrumpió y no pudimos confirmar la carga. Conserva el mismo archivo para reintentar; si ya se guardó, no se duplica.');}
+  if(generation!==authGeneration)throw new Error('La sesión cambió.');
+  if(response.status===401)lockAccess('Tu sesión terminó.');
+  const result=await responsePayload(response,true);
+  if(generation!==authGeneration)throw new Error('La sesión cambió.');
+  if(!Number.isInteger(result.id)&&typeof result.id!=='string')throw new Error('El servidor no confirmó el archivo guardado. Conserva el mismo archivo para reintentar sin duplicarlo.');
+  return result;
+}
+
+async function api(path, method = 'GET', body, presentation=null) {
+  const progress=presentation?window.OvejaLoading.begin(presentation.target,presentation):null;
+  const controller=method==='GET'?new AbortController():null;
+  const timeout=controller?setTimeout(()=>controller.abort(),30000):null;
+  try{
+    const generation=authGeneration;
+    const response=await fetch(path,{method,headers:method==='GET'?{}:{'Content-Type':'application/json','X-ERP-Local':'1'},body:body?JSON.stringify(body):undefined,signal:controller?.signal});
+    if(!path.startsWith('/api/partner/')&&generation!==authGeneration)throw new Error('La sesión cambió.');
+    if(response.status===401&&!path.endsWith('/login'))lockAccess('Tu sesión terminó. Ingresa nuevamente.');
+    const data=await responsePayload(response);
+    if(!path.startsWith('/api/partner/')&&generation!==authGeneration)throw new Error('La sesión cambió.');
+    return data;
+  }catch(error){
+    if(error.name==='AbortError')throw new Error('Se agotó el tiempo de consulta. Puedes reintentar.');
+    throw error;
+  }finally{clearTimeout(timeout);progress?.done();}
+}
+
 function actor() {
   if(!state.user) throw new Error('Inicia sesión para continuar.');
   return state.user.username;
 }
 function lockAccess(message='Ingresa con tu cuenta para continuar.') {
-  window.OvejaFees?.reset();window.OvejaChat?.reset();
+  window.OvejaCashBags?.reset();
+  window.OvejaCashControl?.reset();
+  window.OvejaCashInsights?.reset();
+  window.OvejaClosures?.reset();
+  window.OvejaLoading.cancelAll();
+  window.OvejaTechnicalSheets?.reset();
+  window.OvejaDocuments?.reset();
+  window.OvejaProcurement?.reset();
+  window.OvejaTasks?.reset();window.OvejaPayables?.reset();
+  messageView=null;
+  window.OvejaFees?.reset();window.OvejaChat?.reset();window.OvejaDeliveryReview?.reset();window.OvejaSupplierOpening?.reset();window.OvejaStockCount?.reset();
   authGeneration++;state.request++;state.panelRequest++;
   state.user=null;state.partner=null;state.board=null;state.detail=null;state.editing=null;
   state.transition=null;state.sosContext=null;state.sosReview=null;state.commentDisclosure.clear();
   pendingNotices=[];noticeTracker=null;noticeScope='';
-  document.body.classList.add('auth-locked');
+  document.body.classList.add('auth-locked','boot-pending');
   $('#access-message').textContent=message;
   $('#modal').close();$('#modal-content').replaceChildren();
   for(const id of ['orders','summary','alerts','recipes','analytics','catalog-products','toteat-orders','stock-rows','production-totals','notification-list','attention-list','attention-counts','backup-state','reader-warning','account-name','account-role','partner-session-state','tests-in-period','transfer-results','home-workspace','delivery-results','delivery-sync-note','chat-results']) $('#'+id)?.replaceChildren();
@@ -74,9 +150,14 @@ function lockAccess(message='Ingresa con tu cuenta para continuar.') {
   $('#access-form').reset();
 }
 async function startAccess() {
-  await loadPartnerSession();
-  if(state.user) await loadBoard();
+  const progress=window.OvejaLoading.begin($('#access-screen'),{label:'Comprobando acceso…'});
+  try{await loadPartnerSession();}finally{progress.done();}
+  if(!state.user)return;
+  const workspace=window.OvejaLoading.begin($('#main'),{label:'Cargando espacio de trabajo…'});
+  try{if(await loadBoard()===false&&state.user)workspace.fail('No se pudo obtener la información inicial.',startAccess);}
+  finally{workspace.done();}
 }
+
 async function loginAccess(event) {
   event.preventDefault();const form=event.target,button=$('#access-submit');
   if(button.disabled)return;
@@ -95,9 +176,10 @@ function dateLabel(value, options = {}) { return new Intl.DateTimeFormat('es-CL'
 function badge(status) { const icon={pendiente:'◷',solicitado:'◎',marcado_solicitado:'◎',marcado:'✓',entregado:'✓',cancelado:'⊘'}[status]||'•';return `<span class="badge ${escapeHTML(status)}"><span aria-hidden="true">${icon}</span>${escapeHTML(labels[status])}</span>`; }
 function itemLabel(item) { return escapeHTML(item.flavor); }
 function modal(title, subtitle, content, footer = '', eyebrow = 'PEDIDO FICTICIO') {
-  state.panelRequest++;
+  state.panelRequest++;$('#modal').classList.remove('stock-count-modal');
   $('#modal-content').innerHTML = `<div class="modal-header"><div><div class="eyebrow">${escapeHTML(eyebrow)}</div><h2 id="modal-title">${escapeHTML(title)}</h2><p>${escapeHTML(subtitle)}</p></div><button class="close-button" data-action="close" aria-label="Cerrar panel">×</button></div><div class="modal-body">${content}</div>${footer ? `<div class="modal-footer">${footer}</div>` : ''}`;
   if (!$('#modal').open) $('#modal').showModal();
+  window.OvejaImageAttachment?.enhance($('#modal-content'));
   $('#modal').scrollTop = 0;
 }
 function showFormError(message) { const box = $('#form-error'); if (box) { box.textContent = message; box.classList.remove('hidden'); box.scrollIntoView({block:'nearest'}); } else toast(message); }
@@ -109,9 +191,11 @@ async function loadBoard() {
   if (state.period === 'custom' && (!state.date || !state.end || state.end < state.date)) {
     $('#load-error').textContent = 'Completa ambas fechas; la final debe ser igual o posterior a la inicial.'; $('#load-error').classList.remove('hidden'); return false;
   }
+  const progress=state.module==='cakes'?window.OvejaLoading.begin($('#tortas-workspace'),{label:'Cargando pedidos…',blocking:!state.board}):null;
   try {
     const board = await api(`/api/board?scope=${state.scope}&period=${state.period}${state.date ? `&date=${encodeURIComponent(state.date)}` : ''}${state.period === 'custom' ? `&end=${encodeURIComponent(state.end)}` : ''}`);
     if (request !== state.request) return;
+    document.body.classList.remove('boot-pending');
     state.board = board; state.date ||= board.today; $('#date').value = state.date;
     $('#load-error').classList.add('hidden');
     $('#metric-stock').textContent = board.stock.available === null ? 'Desconocido' : `${board.stock.available} enteras`;
@@ -126,37 +210,100 @@ async function loadBoard() {
     $('#summary-total').textContent = `${board.summary.outstanding} u.`;
     $('#summary').innerHTML = board.summary.rows.map(row => `<div class="summary-row"><div><strong>${itemLabel(row)}</strong><small>${escapeHTML(row.size)}</small></div><span class="summary-qty">${row.quantity}</span></div>`).join('') || '<p class="hint">Sin encargadas pendientes de entrega.</p>';
     rememberView(); renderOrders(); renderOperations(); await applyNotifications(board.notifications,board.notification_scope,noticeRequest); return true;
-  } catch (error) { if (request !== state.request) return false; $('#load-error').textContent = 'No se pudo actualizar. ' + error.message; $('#load-error').classList.remove('hidden'); return false; }
+  } catch (error) { if (request !== state.request) return false; $('#load-error').textContent = 'No se pudo actualizar. ' + error.message; $('#load-error').classList.remove('hidden'); return false; } finally {progress?.done();}
 }
 
+let loadingView='';
 function renderModules() {
+  if(state.module!=='cash'||state.moduleSection!=='Entregas')window.OvejaCashBags?.leave();
+  if(state.module!=='cash'||['Entregas','Cierres','Análisis'].includes(state.moduleSection))window.OvejaCashControl?.leave();
+  if(state.module!=='cash'||state.moduleSection!=='Cierres')window.OvejaClosures?.leave();
+  if(state.module!=='cash'||!['Análisis','Conciliación'].includes(state.moduleSection))window.OvejaCashInsights?.leave();
+  const module=modules[state.module];
+  if(module.sections.length&&!module.sections.includes(state.moduleSection))state.moduleSection=module.sections[0];
+  const viewKey=state.module+':'+state.moduleSection;
+  if(viewKey!==loadingView){window.OvejaLoading.cancelAll();loadingView=viewKey;}
+  document.body.dataset.workspace=state.module;
+  window.OvejaTasks?.leave();
+  window.OvejaTechnicalSheets?.leave();
+  if(state.module!=='documents')window.OvejaDocuments?.leave();
+  const showSuppliers=false;
+  const showProcurement=state.module==='suppliers'&&window.OvejaProcurement?.sections.includes(state.moduleSection);
+  if(!showProcurement)window.OvejaProcurement?.leave();
+  const showPayables=state.module==='suppliers'&&!showSuppliers&&!showProcurement;
+  if(!showPayables)window.OvejaPayables?.leave();
+  if(!showSuppliers)window.OvejaSupplierOpening?.leave();
+  const showReview=state.module==='delivery'&&window.OvejaDeliveryReview?.sections.includes(state.moduleSection);
+  if(!showReview)window.OvejaDeliveryReview?.leave();
   const showChat=state.module==='delivery'&&state.moduleSection==='Registro de repartos';
   if(!showChat)window.OvejaChat?.leave();
   const showFees=state.module==='delivery'&&['','Montos diarios','Tarifas de reparto'].includes(state.moduleSection);
   if(!showFees)window.OvejaFees?.leave();
-  const module=modules[state.module];
-  const moduleButton=key=>{const value=modules[key];return `<button type="button" class="module-tab ${state.module===key?'selected':''}" data-module="${key}" aria-current="${state.module===key?'page':'false'}"><span aria-hidden="true">${value.icon}</span><span>${escapeHTML(value.name)}</span>${!['home','cakes','transfers','delivery'].includes(key)?'<small>En preparación</small>':''}</button>`;};
-  const groups=[['Operación',['home','cakes','delivery','production','inventory']],['Administración',['transfers','suppliers','catalog','costs','reports']],['Equipo y gestión',['people','shifts','attendance','documents','customers','maintenance']]];
-  $('#module-sidebar').innerHTML=groups.map(([label,keys])=>`<div class="module-group-label">${label}</div>${keys.map(moduleButton).join('')}`).join('');
-  $('#module-mobile').innerHTML=`<details><summary>${escapeHTML(module.name)} <small>Cambiar módulo</small></summary><div class="module-mobile-options">${groups.flatMap(([,keys])=>keys).map(moduleButton).join('')}</div></details>`;
+  renderNavigation(navigationModuleButton);
   $('#tortas-workspace').classList.toggle('hidden',state.module!=='cakes');
   $('#module-placeholder').classList.toggle('hidden',state.module==='cakes');
   $('#breadcrumb-module').textContent=module.name;
-  $('#home-workspace').classList.add('hidden');
+  $('#home-workspace').classList.add('hidden');$('#supplier-opening-workspace').classList.add('hidden');
   $('#transfer-workspace').classList.add('hidden');
-  $('#delivery-workspace').classList.add('hidden');$('#delivery-chat-workspace').classList.add('hidden');
+  $('#documents-workspace').classList.add('hidden');
+  $('#delivery-review-workspace').classList.add('hidden');$('#delivery-workspace').classList.add('hidden');$('#delivery-chat-workspace').classList.add('hidden');
   $('#module-placeholder .module-empty').classList.remove('hidden');
   if(state.module==='cakes')return;
   if(state.module==='home'){renderHome();return;}
   if(!module.sections.includes(state.moduleSection))state.moduleSection=module.sections[0]||module.name;
-  $('#module-title').textContent=module.name;
+  $('#module-title').textContent=state.module==='suppliers'?state.moduleSection:module.name;
   $('#module-placeholder .module-subtitle').textContent=module.proposed?'Módulo sugerido · alcance por definir.':'Estructura preparada · datos e integración pendientes.';
   $('#module-section-title').textContent=state.moduleSection;
-  $('#module-placeholder .module-empty p').textContent=state.module==='suppliers'&&state.moduleSection==='Programación semanal de pagos'?'Próximamente: seleccionar facturas de la semana y copiar un resumen para WhatsApp con proveedor, folio, vencimiento, monto y total.':'Este espacio todavía no tiene datos ni operaciones habilitadas.';
+  if(state.module==='cash'){
+    $('#module-placeholder .module-empty').classList.add('hidden');
+    $('#module-placeholder .module-subtitle').textContent='Cierres, entregas y custodia · control desde el 16/10/2026.';
+    if(state.moduleSection==='Entregas')window.OvejaCashBags?.enter();
+    else if(state.moduleSection==='Cierres')window.OvejaClosures?.enter();
+    else if(state.moduleSection==='Análisis')window.OvejaCashInsights?.enter('analysis');
+    else {window.OvejaCashControl?.enter(state.moduleSection);if(state.moduleSection==='Conciliación')window.OvejaCashInsights?.enter('terminal');}
+  }
+  if(state.module==='production'&&state.moduleSection==='Fichas técnicas'){
+    $('#module-placeholder .module-empty').classList.add('hidden');
+    $('#module-title').textContent='Fichas técnicas';
+    $('#module-placeholder .module-subtitle').textContent='Preparaciones, ingredientes y controles de trabajo.';
+    window.OvejaTechnicalSheets?.enter();
+  }
+  if(state.module==='tasks'){
+    $('#module-placeholder .module-empty').classList.add('hidden');
+    $('#module-placeholder .module-subtitle').textContent='Listas diarias por persona · cantidades e instrucciones manuales.';
+    window.OvejaTasks?.enter();
+  }
+  $('#module-placeholder .module-empty p').textContent='Este espacio todavía no tiene datos ni operaciones habilitadas.';
   if(state.module==='transfers' && ['Transferencias del local','Cierres diarios','Estado del bot'].includes(state.moduleSection)){
     $('#module-placeholder .module-empty').classList.add('hidden');$('#transfer-workspace').classList.remove('hidden');
     $('#module-placeholder .module-subtitle').textContent='Transferencias enviadas por caja al bot Ovejita · lectura y seguimiento.';
     loadTransfers();
+  }
+  if(showPayables){
+    $('#module-placeholder .module-empty').classList.add('hidden');
+    $('#module-placeholder .module-subtitle').textContent='Facturas, saldos y comprobantes · coordinación de pagos.';
+    window.OvejaPayables?.enter();
+  }
+  if(showProcurement){
+    $('#module-placeholder .module-empty').classList.add('hidden');
+    $('#module-placeholder .module-subtitle').textContent='Pedidos, recepción y movimientos registrados de insumos.';
+    window.OvejaProcurement.enter();
+  }
+  if(showSuppliers){
+    $('#module-placeholder .module-empty').classList.add('hidden');$('#supplier-opening-workspace').classList.remove('hidden');
+    $('#module-placeholder .module-subtitle').textContent='Etapa 1 · saldos iniciales y condiciones de compra.';
+    window.OvejaSupplierOpening?.enter();
+  }
+  if(showReview){
+    $('#module-placeholder .module-empty').classList.add('hidden');$('#delivery-review-workspace').classList.remove('hidden');
+    $('#module-placeholder .module-subtitle').textContent=state.moduleSection+' · evidencia privada y revisión provisional.';
+    window.OvejaDeliveryReview.enter();
+  }
+  if(state.module==='documents'){
+    $('#module-placeholder .module-empty').classList.add('hidden');
+    $('#documents-workspace').classList.remove('hidden');
+    $('#module-placeholder .module-subtitle').textContent='Documentos vigentes, plantillas y checklists del equipo.';
+    window.OvejaDocuments?.enter();
   }
   if(showChat){
     $('#module-placeholder .module-empty').classList.add('hidden');$('#delivery-chat-workspace').classList.remove('hidden');
@@ -171,18 +318,34 @@ function renderModules() {
   $('#module-subtabs').innerHTML=module.sections.map(section=>`<button class="${section===state.moduleSection?'selected':''}" data-module-section="${escapeHTML(section)}" aria-pressed="${section===state.moduleSection}">${escapeHTML(section)}</button>`).join('');
 }
 document.addEventListener('click',event=>{
+  const areaButton=event.target.closest('[data-nav-area]');
+  if(areaButton&&state.user){
+    const key=areaButton.dataset.navArea;
+    if(key==='home'||key==='suppliers'){state.module=key;state.moduleSection='';renderModules();rememberView();}
+    else{navigationArea=key;renderNavigation(navigationModuleButton);$('#module-sidebar .navigation-context .module-tab')?.focus();}
+    return;
+  }
   const moduleButton=event.target.closest('[data-module]');
   const sectionButton=event.target.closest('[data-module-section]');
   if(!state.user || (!moduleButton&&!sectionButton))return;
-  if(moduleButton){state.module=moduleButton.dataset.module;state.moduleSection='';}
+  if(moduleButton){state.module=moduleButton.dataset.module;state.moduleSection='';const mobile=$('#module-mobile > details');if(mobile)mobile.open=false;}
   else state.moduleSection=sectionButton.dataset.moduleSection;
+  const mobileMenu=$('#module-mobile > details');if(mobileMenu)mobileMenu.open=false;
   renderModules();rememberView();
 });
 function rememberView() {
+  if(state.module==='cash'){
+    const previous=new URLSearchParams(location.search),params=new URLSearchParams({module:'cash',section:state.moduleSection||'Resumen'});
+    for(const key of ['cash_start','cash_end','cash_register','cash_shift','cash_scope'])if(previous.has(key))params.set(key,previous.get(key));
+    if(state.moduleSection==='Entregas'&&previous.has('bag'))params.set('bag',previous.get('bag'));
+    if(state.moduleSection==='Cierres'&&previous.has('closure'))params.set('closure',previous.get('closure'));
+    history.replaceState(null,'','/?'+params);return;
+  }
   const params=new URLSearchParams({module:state.module,view:state.view,scope:state.scope,period:state.period,date:state.date});
   if(state.period==='custom')params.set('end',state.end);
   if(state.module!=='cakes' && state.moduleSection)params.set('section',state.moduleSection);
-  if(state.module==='delivery'){const month=state.moduleSection==='Registro de repartos'?window.OvejaChat?.month:window.OvejaFees?.month;if(month)params.set('month',month);}
+  if(state.module==='delivery'){const month=(window.OvejaDeliveryReview?.sections.includes(state.moduleSection)?window.OvejaDeliveryReview.month:state.moduleSection==='Registro de repartos'?window.OvejaChat?.month:window.OvejaFees?.month)||new URLSearchParams(location.search).get('month');if(/^\d{4}-\d{2}$/.test(month||''))params.set('month',month);}
+  if(state.module==='tasks'&&window.OvejaTasks?.date)params.set('task_date',window.OvejaTasks.date);
   if(localThemePreview)params.set('theme',localThemePreview);
   history.replaceState(null,'',`${location.pathname}?${params}`);
 }
@@ -254,7 +417,7 @@ async function showPartnerAccess(returnToCustomer=false) {
   await loadPartnerSession();
   if(!state.user)return;
   if(returnToCustomer && can('customer')){showCustomerForm();return;}
-  modal('Mi cuenta',state.user.name,`<p>${escapeHTML(state.user.role_label)} · ${escapeHTML(state.user.username)}</p><p>Los cambios que realices quedan asociados a esta cuenta.</p>`,'<button class="button secondary" data-action="close">Volver</button><button class="button primary" data-action="partner-logout">Cerrar sesión</button>','ACCESO PERSONAL');
+  modal('Mi cuenta',state.user.name,`<p>${escapeHTML(state.module==='cash'?'Cuenta autorizada':state.user.role_label)} · ${escapeHTML(state.user.username)}</p><p>Los cambios que realices quedan asociados a esta cuenta.</p>`,'<button class="button secondary" data-action="close">Volver</button><button class="button primary" data-action="partner-logout">Cerrar sesión</button>','ACCESO PERSONAL');
 }
 function showCustomerForm() {
   const order=state.detail;
@@ -336,7 +499,7 @@ function showTransition(button) {
   const status = button.dataset.status;
   const correction = button.dataset.action === 'reverse';
   state.transition = {order:state.detail,item,status,correction};
-  modal(correction ? 'Revertir a pendiente' : labels[status], `${item.quantity} × ${item.flavor} · ${state.detail.customer}`, `<form id="transition-form"><div id="form-error" class="error hidden" role="alert"></div><p class="hint">Se conservará el estado anterior, responsable y fecha. La solicitud abarca las ${item.quantity} unidades de este ítem; no afecta a los otros ítems. ${status === 'marcado_solicitado' ? 'Esteban verá una alerta dentro del ERP. El ítem todavía NO está marcado físico.' : status === 'marcado' ? 'Marca solo cuando la torta física esté asignada. El ajuste manual de inventario se hace fuera de este prototipo.' : status === 'cancelado' ? 'El ítem dejará de contar en encargadas. No se borra ni se anula ninguna venta o pago.' : 'No se realizarán movimientos de stock ni ventas.'}</p><label class="field">Motivo del cambio<input name="reason" required maxlength="500" placeholder="Ej.: comanda física asignada en prueba demo"></label><p class="hint">Responsable: ${escapeHTML(state.user?.name)} · cuenta autenticada</p></form>`, '<button class="button secondary" data-action="back-detail">Volver</button><button class="button primary" type="submit" form="transition-form">Guardar estado</button>');
+  modal(correction ? 'Revertir a pendiente' : labels[status], `${item.quantity} × ${item.flavor} · ${state.detail.customer}`, `<form id="transition-form"><div id="form-error" class="error hidden" role="alert"></div><p class="hint">Se conservará el estado anterior, responsable y fecha. La solicitud abarca las ${item.quantity} unidades de este ítem; no afecta a los otros ítems. ${status === 'marcado_solicitado' ? 'Socio verá una alerta dentro del ERP. El ítem todavía NO está marcado físico.' : status === 'marcado' ? 'Marca solo cuando la torta física esté asignada. El ajuste manual de inventario se hace fuera de este prototipo.' : status === 'cancelado' ? 'El ítem dejará de contar en encargadas. No se borra ni se anula ninguna venta o pago.' : 'No se realizarán movimientos de stock ni ventas.'}</p><label class="field">Motivo del cambio<input name="reason" required maxlength="500" placeholder="Ej.: comanda física asignada en prueba demo"></label><p class="hint">Responsable: ${escapeHTML(state.user?.name)} · cuenta autenticada</p></form>`, '<button class="button secondary" data-action="back-detail">Volver</button><button class="button primary" type="submit" form="transition-form">Guardar estado</button>');
 }
 
 function field(label, name, value = '', type = 'text', extra = '') { return `<label class="field">${label}<input type="${type}" name="${name}" value="${escapeHTML(value)}" ${extra}></label>`; }
@@ -471,47 +634,51 @@ async function saveRecipe(form,button) {
   } catch(error) { showFormError(error.message); }
   finally { state.saving = false; button.disabled = false; }
 }
-function showStockForm(row = null) {
-  if(!can('stock') || state.scope!=='operations')return;
-  const product = state.board.catalog.find(p => p.flavor === row?.flavor && p.size === row?.size) || state.board.catalog[0];
-  if(!product){toast('Primero incorpora un producto entero al catálogo.');return;}
-  row ||= state.board.stock.rows.find(r=>r.flavor===product.flavor&&r.size===product.size) || null;
-  state.stockEditing = row;
-  modal('Ingresar stock físico', 'Manual provisional · no modifica el inventario de Toteat', `<form id="stock-form"><div id="form-error" class="error hidden" role="alert"></div><div class="form-grid">${selectField('Producto del catálogo','stock_product',catalogChoices(),product.sku)}${field('Sabor','flavor',product.flavor,'text','required readonly')}${field('Tamaño','size',product.size,'text','required readonly')}${field('Cantidad física entera (vacío = desconocido)','physical',row?.physical ?? '','number','min="0" max="999" step="1"')}${field('Enteras reservadas para trozar / vitrina','reserved',row?.reserved ?? 0,'number','required min="0" max="999" step="1"')}<div class="detail-field full"><small>Disponible para venta entera</small><output id="stock-available" aria-live="polite">Desconocido</output></div><label class="field full">Motivo del conteo<input name="reason" required maxlength="500" placeholder="Ej.: conteo físico de apertura"></label></div><p class="hint">Disponible = físico − reserva para trozar. No se descuentan pedidos nuevamente. Un campo físico vacío significa desconocido; 0 significa que no hay unidades. Tu cuenta, fecha y motivo quedan en el historial.</p></form>`, '<button class="button secondary" data-action="close">Cancelar</button><button class="button primary" type="submit" form="stock-form">Guardar conteo</button>','STOCK DE TORTAS · SOLO SOCIOS');
-  updateStockAvailable();
+function showStockForm(row = null) { window.OvejaStockCount?.open(row); }
+let messageView=null;
+function messageIsOpen(view){return view===messageView&&view.preview.isConnected&&$('#modal').open&&state.user?.username===view.username;}
+async function refreshMessage(view){
+  view.data=null;view.preview.value='';
+  $('#whatsapp-copy-status').textContent='Actualizando pedidos y marcados…';
+  const data=await api('/api/whatsapp?'+new URLSearchParams({scope:view.scope}));
+  if(!messageIsOpen(view))return null;
+  view.data=data;view.preview.value=data.text;
+  $('#whatsapp-range').textContent=`${dateLabel(data.start)} — ${dateLabel(data.end)} · entregas en Chile`;
+  $('#whatsapp-copy-status').textContent='Actualizado · nuevas marcadas desde tu última copia con esta cuenta.';
+  return data;
 }
-function selectStockProduct(sku){
-  const product=state.board.catalog.find(p=>p.sku===sku),form=$('#stock-form');if(!product||!form)return;
-  const row=state.board.stock.rows.find(r=>r.flavor===product.flavor&&r.size===product.size)||null;
-  state.stockEditing=row;
-  for(const key of ['flavor','size'])form.elements[key].value=product[key];
-  form.elements.physical.value=row?.physical??'';form.elements.reserved.value=row?.reserved??0;
-  updateStockAvailable();
+async function recordMessageCopy(view,data){
+  try{await api('/api/whatsapp/copied','POST',data.copy);if(messageIsOpen(view))toast('Texto copiado. Referencia de marcados actualizada.');}
+  catch(error){if(messageIsOpen(view))toast('Texto copiado, pero no se pudo guardar la referencia. Los marcados podrían repetirse en la próxima copia.');}
 }
-function updateStockAvailable(){
-  const form=$('#stock-form');if(!form)return;
-  const physical=form.elements.physical,reserved=form.elements.reserved;
-  const amount=physical.value===''?null:Number(physical.value),held=Number(reserved.value);
-  reserved.max=amount===null?'999':String(amount);
-  reserved.setCustomValidity(amount!==null&&held>amount?'La reserva para trozar no puede superar el stock físico.':'');
-  $('#stock-available').textContent=amount===null?'Desconocido':Number.isInteger(amount)&&amount>=0&&Number.isInteger(held)&&held>=0&&held<=amount?String(amount-held):'Revisar cantidades';
+async function showMessage(){
+  if(!state.user||!state.board)return;
+  modal('Texto para WhatsApp','Desde hoy hasta el viernes. Se actualiza al copiar.',
+    '<p id="whatsapp-range" class="hint"></p><textarea id="whatsapp-text" class="message-preview" readonly aria-label="Mensaje para copiar"></textarea><p id="whatsapp-copy-status" class="hint" role="status"></p><p class="hint">Detalle de nuevas marcadas al final. Copiar actualiza el texto.</p>',
+    '<button class="button secondary" data-action="close">Cerrar</button><button class="button primary" data-action="copy" disabled>Copiar texto</button>','PREVIA · NO ENVÍA MENSAJES');
+  const view=messageView={preview:$('#whatsapp-text'),scope:state.scope,username:state.user.username,data:null,busy:true};
+  try{await refreshMessage(view);}
+  catch(error){if(messageIsOpen(view))$('#whatsapp-copy-status').textContent='No se pudo actualizar. Pulsa Copiar para reintentar.';}
+  finally{view.busy=false;if(messageIsOpen(view))$('#modal [data-action=copy]').disabled=false;}
 }
-document.addEventListener('input',event=>{if(event.target.closest('#stock-form')&&['physical','reserved'].includes(event.target.name))updateStockAvailable();});
-async function saveStock(form,button) {
-  if (state.saving) return;
-  state.saving = true; button.disabled = true;
-  try {
-    const value = name => form.elements.namedItem(name).value;
-    await api('/api/stock','PUT',{stock:{flavor:value('flavor'),size:value('size'),physical:value('physical') === '' ? null : Number(value('physical')),reserved:Number(value('reserved'))},actor:actor(),reason:value('reason'),version:state.stockEditing?.version ?? 0});
-    $('#modal').close(); await loadBoard(); toast('Conteo y reserva guardados con historial.');
-  } catch(error) { showFormError(error.message); }
-  finally { state.saving = false; button.disabled = false; }
+async function copyMessage(){
+  const view=messageView;if(!view||view.busy||!messageIsOpen(view))return;
+  view.busy=true;const button=$('#modal [data-action=copy]');button.disabled=true;
+  try{
+    const data=await refreshMessage(view);if(!data)return;
+    try{await navigator.clipboard.writeText(data.text);}
+    catch{if(messageIsOpen(view)){view.preview.focus();view.preview.select();$('#whatsapp-copy-status').textContent='Texto actualizado y seleccionado. Usa Copiar en tu dispositivo para completar la copia.';}return;}
+    await recordMessageCopy(view,data);
+  }catch(error){if(messageIsOpen(view))$('#whatsapp-copy-status').textContent='No se pudo actualizar; no se copió un mensaje antiguo. Reintenta cuando vuelva la conexión.';}
+  finally{view.busy=false;if(messageIsOpen(view))button.disabled=false;}
 }
-async function copyMessage() {
-  const text = $('#whatsapp-text').value;
-  try { await navigator.clipboard.writeText(text); toast('Texto copiado. No se envió ningún mensaje.'); }
-  catch { $('#whatsapp-text').focus(); $('#whatsapp-text').select(); toast('Seleccionado. Usa Copiar en tu dispositivo; no se envió ningún mensaje.'); }
-}
+document.addEventListener('copy',event=>{
+  const view=messageView;
+  if(!view||view.busy||!messageIsOpen(view)||event.target!==view.preview||!view.data||!event.clipboardData)return;
+  if(view.preview.selectionStart!==0||view.preview.selectionEnd!==view.preview.value.length)return;
+  event.clipboardData.setData('text/plain',view.data.text);event.preventDefault();
+  recordMessageCopy(view,view.data);
+});
 
 document.addEventListener('click', async event => {
   const button = event.target.closest('button'); if (!button) return;
@@ -565,7 +732,7 @@ document.addEventListener('click', async event => {
   if (action === 'seed-date') {state.date = state.board.seed_date; await loadBoard();}
   if (button.dataset.filter) {selectFilter(button.dataset.filter); renderOrders();}
 });
-document.addEventListener('submit', async event => { if (!['order-form','transition-form','stock-form','recipe-form','partner-form','customer-form','sos-form','sos-override-form','sos-review-form'].includes(event.target.id)) return; event.preventDefault(); const button = document.querySelector(`[type=submit][form=${event.target.id}]`); if(event.target.id==='sos-form')await saveSos(event.target,button);else if(event.target.id==='sos-override-form')await saveSosAuthorization(event.target,button);else if(event.target.id==='sos-review-form')await saveSosReview(event.target,button);else if(event.target.id==='partner-form')await savePartnerForm(event.target,button); else if(event.target.id==='customer-form')await saveCustomer(event.target,button); else if (event.target.id === 'order-form') await saveOrder(event.target,button); else if (event.target.id === 'recipe-form') await saveRecipe(event.target,button); else if (event.target.id === 'stock-form') await saveStock(event.target,button); else await saveTransition(event.target,button); });
+document.addEventListener('submit', async event => { if (!['order-form','transition-form','recipe-form','partner-form','customer-form','sos-form','sos-override-form','sos-review-form'].includes(event.target.id)) return; event.preventDefault(); const button = document.querySelector(`[type=submit][form=${event.target.id}]`); if(event.target.id==='sos-form')await saveSos(event.target,button);else if(event.target.id==='sos-override-form')await saveSosAuthorization(event.target,button);else if(event.target.id==='sos-review-form')await saveSosReview(event.target,button);else if(event.target.id==='partner-form')await savePartnerForm(event.target,button); else if(event.target.id==='customer-form')await saveCustomer(event.target,button); else if (event.target.id === 'order-form') await saveOrder(event.target,button); else if (event.target.id === 'recipe-form') await saveRecipe(event.target,button); else await saveTransition(event.target,button); });
 $('#sos-access').addEventListener('click',showSosPanel);
 document.addEventListener('change',event=>{if(['payment_status','fulfillment'].includes(event.target.name))syncSosForm();if(event.target.name==='source_key' && event.target.value){const source=state.sosContext.sources.find(o=>o.key===event.target.value);if(source)$('#sos-items').innerHTML=source.items.map(item=>{const product=state.board.catalog.find(p=>String(p.source_product?.idToteat)===String(item.productCodeToteat));return product?sosItem({sku:product.sku,quantity:item.quantity}):'';}).join('');}});
 $('#account-button').addEventListener('click',()=>showPartnerAccess());
@@ -595,9 +762,9 @@ $('#apply-range').addEventListener('click',loadBoard);
 $('#modal').addEventListener('cancel', event => { if (state.saving) event.preventDefault(); else state.panelRequest++; });
 $('#stock-edit').addEventListener('click', () => showStockForm());
 $('#production-scope').addEventListener('change',event => {state.productionScope = event.target.value; if (state.board) renderOperations();});
-document.addEventListener('change',event => {if (event.target.name === 'delivery_timing') { syncTimingFields(); return; } if (event.target.name === 'stock_product') { selectStockProduct(event.target.value); return; } if (event.target.name !== 'sku') return; const row = event.target.closest('.form-item'); if (!row) return; const product = state.board.catalog.find(p => p.sku === event.target.value); $('[name=flavor]',row).value = product.flavor; $('[name=size]',row).value = product.size;});
+document.addEventListener('change',event => {if (event.target.name === 'delivery_timing') { syncTimingFields(); return; } if (event.target.name !== 'sku') return; const row = event.target.closest('.form-item'); if (!row) return; const product = state.board.catalog.find(p => p.sku === event.target.value); $('[name=flavor]',row).value = product.flavor; $('[name=size]',row).value = product.size;});
 $('#search').addEventListener('input',event => {state.search = event.target.value; if (state.board) renderOrders();});
-$('#whatsapp').addEventListener('click',() => { if (!state.board) return; modal('Texto para WhatsApp','Incluye lunes a viernes del período elegido. Los pedidos de fin de semana permanecen en el ERP.',`<textarea id="whatsapp-text" class="message-preview" readonly aria-label="Mensaje para copiar">${escapeHTML(state.board.whatsapp)}</textarea><p class="hint">PRODUCTOS POR MARCAR: pendientes y solicitados. RESUMEN ENCARGADAS: también incluye marcados. Stock actual separado de los encargos. ** = enteras reservadas para trozar/vitrina, decididas manualmente.</p>`,'<button class="button secondary" data-action="close">Cerrar</button><button class="button primary" data-action="copy">Copiar texto</button>','PREVIA · NO ENVÍA MENSAJES'); });
+$('#whatsapp').addEventListener('click',showMessage);
 $('#access-form').addEventListener('submit',loginAccess);
 $('#access-retry').addEventListener('click',startAccess);
 startAccess();

@@ -4,6 +4,7 @@ from datetime import date, datetime, timedelta, timezone
 import hashlib
 import json
 import os
+import sqlite3
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -74,6 +75,15 @@ def sales_cycle(inbox, root=ROOT, reader=read_helper, downloader=download_receip
             payload = reader(binary,['sales-one-day',start.strftime('%Y%m%d')],current)
             if not isinstance(payload.get('data'),list):
                 raise ValueError('invalid_sales_rows')
+            # Optional cash projection consumes this same response before catalog filtering.
+            # Activation is explicit at release time; the existing reader schedule is unchanged.
+            if os.environ.get('OVEJA_CASH_CONTROL_ENABLED')=='1' and day>='2026-10-16':
+                from erp import cash_control, cash_control_sources
+                try:
+                    cash_control.initialize(store)
+                    cash_control_sources.record(store,day,'sales',payload,current)
+                except (cash_control.DomainError,sqlite3.Error):
+                    safe['cash_control_state']='review_required'
             # La misma respuesta alimenta tarifas sin gastar otra consulta.
             from erp import delivery_finance
             if delivery_finance.enabled(store):

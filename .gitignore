@@ -13,3 +13,11 @@ private/
 attachments/
 qa/browser-profile/
 qa/*-legacy.jpg
+
+# Private operational material
+*.zip
+*.tar*
+qa/
+exports/
+artifacts/
+config/*.env

@@ -661,11 +661,32 @@ class Store:
         return rows
 
     def update_stock(self, data, actor, reason, version):
+        return self.update_stock_batch([{'stock':data,'version':version}],actor,reason)[0]
+
+    def update_stock_batch(self, entries, actor, reason):
+        if not isinstance(entries,list) or not 1 <= len(entries) <= 100:
+            raise DomainError('Guarda entre 1 y 100 conteos modificados por vez.')
+        actor=clean_text(actor,'Responsable',maximum=80)
+        reason=clean_text(reason,'Motivo',maximum=500)
+        catalog={(p['flavor'],p['size']) for p in self.catalog()}
+        seen=set();changes=[]
+        for entry in entries:
+            if not isinstance(entry,dict):raise DomainError('Conteo no válido.')
+            data=self._validate_stock(entry.get('stock'),catalog)
+            key=(data['flavor'],data['size'])
+            if key in seen:raise DomainError('Un producto aparece más de una vez en el conteo.')
+            seen.add(key);changes.append((data,entry.get('version')))
+        with self.connect() as db:
+            db.execute('BEGIN IMMEDIATE')
+            return [self._write_stock(db,data,actor,reason,version) for data,version in changes]
+
+    @staticmethod
+    def _validate_stock(data,catalog):
         if not isinstance(data, dict):
             raise DomainError("Se espera un conteo de stock.")
         flavor = clean_text(data.get("flavor"), "Sabor", maximum=80)
         size = clean_text(data.get("size"), "Tamaño", maximum=80)
-        if not any((p['flavor'],p['size']) == (flavor,size) for p in self.catalog()):
+        if (flavor,size) not in catalog:
             raise DomainError('Selecciona un producto entero del catálogo local para el conteo.')
         physical, reserved = data.get("physical"), data.get("reserved")
         if physical is not None and (type(physical) is not int or not 0 <= physical <= 999):
@@ -674,17 +695,18 @@ class Store:
             raise DomainError("Reserva vitrina: usa una cantidad entera entre 0 y 999.")
         if physical is not None and reserved > physical:
             raise DomainError("La reserva para vitrina no puede superar el conteo físico.")
-        actor = clean_text(actor, "Responsable", maximum=80)
-        reason = clean_text(reason, "Motivo", maximum=500)
-        with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
-            row = db.execute("SELECT * FROM stock WHERE flavor=? AND size=?", (flavor, size)).fetchone()
-            before = dict(row) if row else None
-            expected = before["version"] if before else 0
-            if type(version) is not int or version != expected:
-                raise DomainError("El conteo cambió. Cierra el panel y actualiza antes de continuar.", 409)
-            stamp = now()
-            db.execute("INSERT INTO stock(flavor,size,physical,reserved,version,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(flavor,size) DO UPDATE SET physical=excluded.physical,reserved=excluded.reserved,version=excluded.version,updated_at=excluded.updated_at", (flavor,size,physical,reserved,expected+1,stamp))
-            after = dict(db.execute("SELECT * FROM stock WHERE flavor=? AND size=?", (flavor,size)).fetchone())
-            db.execute("INSERT INTO stock_history(actor,reason,occurred_at,before_json,after_json) VALUES(?,?,?,?,?)", (actor,reason,stamp,json.dumps(before,ensure_ascii=False),json.dumps(after,ensure_ascii=False)))
-            return after
+        return dict(flavor=flavor,size=size,physical=physical,reserved=reserved)
+
+    @staticmethod
+    def _write_stock(db,data,actor,reason,version):
+        flavor,size,physical,reserved=(data[k] for k in ('flavor','size','physical','reserved'))
+        row=db.execute('SELECT * FROM stock WHERE flavor=? AND size=?',(flavor,size)).fetchone()
+        before=dict(row) if row else None
+        expected=before['version'] if before else 0
+        if type(version) is not int or version != expected:
+            raise DomainError(f'El conteo de {flavor} ({size}) cambió. Cierra el panel y actualiza antes de continuar; no se guardó ningún cambio.',409)
+        stamp=now()
+        db.execute('INSERT INTO stock(flavor,size,physical,reserved,version,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(flavor,size) DO UPDATE SET physical=excluded.physical,reserved=excluded.reserved,version=excluded.version,updated_at=excluded.updated_at',(flavor,size,physical,reserved,expected+1,stamp))
+        after=dict(db.execute('SELECT * FROM stock WHERE flavor=? AND size=?',(flavor,size)).fetchone())
+        db.execute('INSERT INTO stock_history(actor,reason,occurred_at,before_json,after_json) VALUES(?,?,?,?,?)',(actor,reason,stamp,json.dumps(before,ensure_ascii=False),json.dumps(after,ensure_ascii=False)))
+        return after

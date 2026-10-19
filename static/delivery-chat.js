@@ -18,6 +18,7 @@ window.OvejaChat=(()=>{
   async function load(){
     if(busy||!visible())return;
     const request=++sequence;busy=true;$('#chat-filter button').disabled=true;
+    const progress=window.OvejaLoading.begin($('#chat-results'),{label:'Cargando registro de repartos…',blocking:!snapshot});
     try{
       const result=await api('/api/delivery/chat?'+new URLSearchParams({month}));
       if(request!==sequence||!visible())return;
@@ -26,8 +27,8 @@ window.OvejaChat=(()=>{
       select.innerHTML='<option value="all">Todos los repartidores</option>'+(snapshot.couriers||[]).map(c=>`<option value="${escapeHTML(c.driver===null?'missing':c.driver)}">${escapeHTML(c.driver||'Sin repartidor')}</option>`).join('');
       if([...select.options].some(o=>o.value===prior))select.value=prior;
       render();rememberView();
-    }catch(error){if(request===sequence&&visible())$('#chat-results').innerHTML=`<p class="error" role="alert">${escapeHTML(error.message)}</p>`;}
-    finally{if(request===sequence){busy=false;$('#chat-filter button').disabled=false;}}
+    }catch(error){if(request===sequence&&visible())progress.fail(error.message,load);}
+    finally{progress.done();if(request===sequence){busy=false;$('#chat-filter button').disabled=false;}}
   }
   function selected(){const driver=$('#chat-filter').elements.driver.value;return (snapshot.records||[]).filter(r=>driver==='all'||(driver==='missing'?r.driver===null:r.driver===driver));}
   function totals(rows){const base=rows.filter(r=>r.analysis_status==='structured_subtotal');return {records:rows.length,base:base.reduce((s,r)=>s+r.amount_clp,0),baseCount:base.length,pending:rows.length-base.length,gross:rows.reduce((s,r)=>s+(r.amount_clp||0),0),unknown:rows.filter(r=>r.amount_clp===null).length};}

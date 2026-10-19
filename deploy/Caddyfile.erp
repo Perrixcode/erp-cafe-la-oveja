@@ -1,6 +1,43 @@
 # Append as a separate site; preserve all existing site blocks.
-erp.loxby.cl {
-    request_body {
+erp.example.test {
+    # Permit 8 MiB files with 1 MiB transport margin; the application still enforces 8 MiB.
+    @supplier_files path /api/suppliers/documents /api/suppliers/documents/ /api/suppliers/invoices/*/files /api/suppliers/account-entries/*/files
+    # JSON payments carry an 8 MiB proof encoded in base64 plus metadata.
+    @supplier_payments path /api/suppliers/account-invoice-payments /api/suppliers/account-joint-payments
+    request_body @supplier_payments {
+        max_size 12582912
+    }
+    # New closure attachments: 2 MiB binary, base64 plus metadata; exact route only.
+    @closure_attachment {
+        method POST
+        path_regexp closure_file ^/api/cash-closures/[a-f0-9]{32}/attach$
+    }
+    request_body @closure_attachment {
+        max_size 3145728
+    }
+    # Saved weekly counting drafts only; up to 200 bags and their notes.
+    @closure_batch {
+        method POST
+        path /api/cash-closures/review-panel/batch-save
+    }
+    request_body @closure_batch {
+        max_size 524288
+    }
+    @small_request {
+        not {
+            method POST
+            path /api/cash-closures/review-panel/batch-save
+        }
+        not {
+            method POST
+            path_regexp closure_exempt ^/api/cash-closures/[a-f0-9]{32}/attach$
+        }
+        not path /api/suppliers/documents /api/suppliers/documents/ /api/suppliers/invoices/*/files /api/suppliers/account-entries/*/files /api/suppliers/account-invoice-payments /api/suppliers/account-joint-payments
+    }
+    request_body @supplier_files {
+        max_size 9437184
+    }
+    request_body @small_request {
         max_size 64KB
     }
     reverse_proxy 127.0.0.1:8010

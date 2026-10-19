@@ -80,8 +80,8 @@ La recuperación exige una carpeta nueva y nunca reemplaza una instalación ni a
 | Estado | Significado |
 | --- | --- |
 | Pendiente de marcado | Todavía no se solicitó ni confirmó el marcado. No afirma que falte elaborar. |
-| Marcado solicitado | La jefa pidió el marcado a Esteban; hay alerta abierta dentro del ERP. |
-| Marcado físico | Esteban confirmó que el producto físico está marcado. |
+| Marcado solicitado | La jefa pidió el marcado a Socio; hay alerta abierta dentro del ERP. |
+| Marcado físico | Socio confirmó que el producto físico está marcado. |
 | Entregado | Se registró la entrega y se conserva el historial. |
 | Cancelado | Deja de contar en encargadas sin borrar el registro ni anular pagos/ventas. |
 
@@ -155,7 +155,7 @@ Se retiraron el selector de perfil y el responsable escrito a mano. Los permisos
 
 ## Stock y reserva para vitrina
 
-`**` significa **enteros que Esteban decide reservar para trozar y mantener vitrina**. Nunca representa inventario de trozos. Puede decidir 0, 1 o X; no hay una regla automática de reservar la última unidad.
+`**` significa **enteros que Socio decide reservar para trozar y mantener vitrina**. Nunca representa inventario de trozos. Puede decidir 0, 1 o X; no hay una regla automática de reservar la última unidad.
 
 ```text
 Disponible para venta entera = físico entero − reserva vitrina
@@ -238,7 +238,7 @@ Node solo comprueba sintaxis; no se necesita para ejecutar. Las pruebas HTTP usa
 
 ## Portafolio y siguientes pasos
 
-Proyecto personal de Esteban Iturra, desarrollado con asistencia técnica, revisión y aprendizaje incremental. No se incluyen clientes, credenciales, bases de datos ni catálogo comercial real. Sin licencia elegida todavía.
+Proyecto personal de Esteban Iturra, con desarrollo manual, asistencia de IA, revisión y aprendizaje incremental. No se incluyen clientes, credenciales, bases de datos ni catálogo comercial real. Sin licencia elegida todavía.
 
 Identidad negro/blanco inspirada en [Café La Oveja](https://cafelaoveja.cl); crema, oliva y caramelo son interpretación del ERP. Tipografía del sistema; sin fotos ni archivos del logo oficial.
 
@@ -247,3 +247,9 @@ Estado actual: recepción con agendamiento automático o autorización de socio;
 Guías: [aprendizaje](LEARNING.md), [operación](docs/OPERACION.md), [Toteat](docs/TOTEAT_READONLY.md).
 
 El reemplazo funcional del panel anterior se documenta en [Paridad del panel de Ovejita](docs/PARIDAD_PANEL_BOT.md).
+
+## Cierre digital V2 · piloto semanal
+
+La V2 integra conteo A/B por denominación, bolsa A−B, MP por terminal, respaldos privados, firma ligada al snapshot del servidor y depósito separado de entrega, recepción y conteo. La revisión humana conserva autor, fecha y versión; las fuentes tardías quedan aparte y exigen revisar nuevamente. Incluye bandeja de pendientes accionables sin atribuir el cierre administrativo tardío a una cajera.
+
+Instalar `requirements-server.txt` para PDF e imágenes. Consultar [operación y matriz de aceptación](docs/CIERRE_V2_SEMANAL.md), [caso de estudio](docs/portafolio-cierre-v2/README.md), [arquitectura](docs/portafolio-cierre-v2/ARQUITECTURA.md), [verificación y límites](docs/portafolio-cierre-v2/VERIFICACION.md) y [privacidad](docs/portafolio-cierre-v2/PUBLICACION.md). La distribución pública usa etiquetas y fixtures sintéticos; no contiene bases, respaldos ni evidencias reales.

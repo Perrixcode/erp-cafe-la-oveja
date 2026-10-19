@@ -1,0 +1,14 @@
+# Optional isolated Linux OCR runtime, tested on Python 3.12. Documents never leave the host.
+rapidocr_onnxruntime==1.4.4
+onnxruntime==1.31.0
+numpy==2.5.4
+opencv-python==5.0.0.93
+Pillow==12.3.0
+PyYAML==6.0.3
+Shapely==2.2.0
+pyclipper==1.4.0
+flatbuffers==25.12.19
+protobuf==7.36.2
+packaging==26.3
+six==1.17.0
+tqdm==4.70.1

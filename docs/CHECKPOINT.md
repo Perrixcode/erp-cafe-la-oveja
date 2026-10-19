@@ -1,3 +1,5 @@
+> Documento histórico conservado. Para la V2 actual y su despliegue verificado, consulta [verificación](portafolio-cierre-v2/VERIFICACION.md).
+
 # Migración funcional del panel · en verificación · 2026-10-05 UTC
 
 Seguimiento revisar/reabrir, filtros por cajera/estado, distribución por motivo/cajera/día, alerta de salud atrasada y exportación CSV completa auditada implementados. 212 pruebas Python aprobadas; Chrome dedicado 1180/320 pasa revisión/reapertura/cancelar/doble clic/recarga/filtro/descarga CSV. El puente privado conserva `resoluciones` para cierres y monitor; no modifica resultado, monto, pagos ni mensajes. Falta desplegar esta versión y verificar paridad/reversión antes de detener el panel antiguo.
@@ -6,12 +8,12 @@ Muestra web acotada a las 00:37 UTC: una consulta de abiertas (2 órdenes, 1 tor
 
 # Entrega desplegada · 2026-10-05 UTC
 
-- **HTTPS activo:** https://erp.loxby.cl. Diseño A. Acceso con las cuentas existentes; perfiles y datos privados protegidos por servidor. Localhost solo redirige al servidor, sin escribir datos.
+- **HTTPS activo:** https://erp.example.test. Diseño A. Acceso con las cuentas existentes; perfiles y datos privados protegidos por servidor. Localhost solo redirige al servidor, sin escribir datos.
 - **Migración completada y verificada:** SQLite, cuentas con sal/hash, historial y boleta. Respaldo privado anterior al corte; sin duplicados de fuente. El lector del Mac está deshabilitado; lector Linux activo, GET de comandas/ventas/anulaciones conocidas, sin escritura a Toteat.
 - **Recepción:** comentario abierto por defecto y cierre manual respetado en la sesión; Forzar agendamiento solo socios con motivo; venta inmediata presencial solo con venta cerrada/saldada recibida y comentario vacío/incompleto, confirmación e historial. Descuento saldado no se presenta como dinero recibido. Anular en ERP requiere confirmación; se conserva el historial. Cuatro pestañas con los mismos registros, sin duplicación.
-- Etiqueta solicitada del bot normalizada exactamente a **Esteban (socio)** en cada proyección, conservando identidad y configuración de Ovejita.
+- Etiqueta solicitada del bot normalizada exactamente a **Socio (socio)** en cada proyección, conservando identidad y configuración de Ovejita.
 - **Bot en producción:** proyección privada de revisiones, comanda elegida, cajera/monto, verificaciones, historial, cierres, estado del envío y salud. Archivo de futuras fotos/selecciones activado, con respaldo del código y SQLite de Ovejita y worker activo. Sin imágenes históricas inventadas. Foto y boleta con vista previa y descarga en el mismo diálogo.
-- **Verificación:** 206 pruebas Python aprobadas en Mac y Ubuntu, incluido control de frecuencia y cambio de día chileno. Guard de presentación «Esteban (socio)» verificado con 6 pruebas adicionales del módulo de integración. QA con fixtures 1180/320 de permisos, confirmaciones/cancelación, doble clic, cuatro pestañas/recarga, comentario, boleta/foto y venta exacta. Login anónimo del HTTPS real verificado en Chrome dedicado 1180/320, sin desbordes ni errores JS. Evidencia privada: `private/login-server-*.png`; servidor `/var/lib/oveja-erp/private/deployment-evidence.json`.
+- **Verificación:** 206 pruebas Python aprobadas en Mac y Ubuntu, incluido control de frecuencia y cambio de día chileno. Guard de presentación «Socio (socio)» verificado con 6 pruebas adicionales del módulo de integración. QA con fixtures 1180/320 de permisos, confirmaciones/cancelación, doble clic, cuatro pestañas/recarga, comentario, boleta/foto y venta exacta. Login anónimo del HTTPS real verificado en Chrome dedicado 1180/320, sin desbordes ni errores JS. Evidencia privada: `private/login-server-*.png`; servidor `/var/lib/oveja-erp/private/deployment-evidence.json`.
 - **Límite de Toteat observado:** HTTP 429 en ventas. El lector conserva datos, respeta espera global, separa GET por 2 segundos y consulta como máximo dos días de ventas por ciclo (día verificado y exploración rotativa). El día actual se calcula en Chile. Recuperación real verificada: ventas volvió a `receiving` el 2026-10-05 a las 00:17:50 UTC; comandas también activas. No se borró la espera del proveedor para forzar consultas.
 - **Respaldos activos:** ERP SQLite/boletas y archivo incremental de fotos/selecciones. Restauración real a carpeta privada NUEVA verificada por manifiesto, con foto y asociación; producción no reemplazada. Primera foto real del bot archivada y asociada a la venta seleccionada, además de las pruebas ficticias de interfaz. Todos los servicios originales de Ovejita continúan activos. No se copiaron credenciales a GitHub ni se crearon cuentas reales nuevas.
 - **Pendiente concreto WEB/Mercat:** falta payload/contrato verificable de ASAP, programación y pago de una mesa abierta web. Los casos identificados web quedan en revisión, sin declarar entrega por pago, sin usar creación/ETA como fecha solicitada y sin autoagendar por datos de cliente. Conflictos entre modalidad y comentario requieren confirmación del socio. La muestra real disponible no traía esos campos. No afirmar integración web automática terminada.
@@ -23,7 +25,7 @@ Muestra web acotada a las 00:37 UTC: una consulta de abiertas (2 órdenes, 1 tor
 
 # Estado de la entrega actual · 4 octubre 2026
 
-Carpeta correcta: `/Users/estebaniturra/Documents/ChatGPT/ERP Oveja`. No se borró el origen ni se incorporaron archivos privados a Git.
+Carpeta correcta: `/ruta/local/proyecto Oveja`. No se borró el origen ni se incorporaron archivos privados a Git.
 
 ## Checkpoint de supervisión
 
@@ -32,7 +34,7 @@ Carpeta correcta: `/Users/estebaniturra/Documents/ChatGPT/ERP Oveja`. No se borr
 - **Bot:** modal con foto y descarga en la misma ventana listo y probado. Se conserva la opción exacta elegida por caja. Hook de archivo ensayado contra 21 pruebas del flujo Ovejita en copia aislada del servidor: aprobado. Todavía no activado en producción. Históricos sin imagen/detalle original se indican no disponibles; no se inventan asociaciones.
 - **Analítica:** estructura preparada y propuesta en `docs/ANALITICA.md`: margen por producto, venta conjunta, horarios, precios, canales/reparto, mermas, recompra, productividad, pronóstico y calidad. Sin pipeline financiero ni KPIs inventados. Personas, documentos y proveedores siguen como módulos por desarrollar; facturas semanales contemplan texto para WhatsApp.
 - **GitHub público:** `https://github.com/Perrixcode/erp-cafe-la-oveja`, identidad Perrixcode verificada. Referencias publicadas previas: `b12e82f` y `2a9d47b`. El diseño A forma parte de la entrega que contiene este checkpoint. Proyecto personal con asistencia técnica. Sin licencia del proyecto elegida.
-- **DNS:** `erp.loxby.cl` resuelve a `46.224.147.187`. Usuario, carpetas, venv y código del ERP preparados de forma aislada. Puerto previsto `127.0.0.1:8010`. **HTTPS y servicios ERP todavía no activados; la URL pública aún no es utilizable.** Caddy y los servicios de Ovejita siguen sin modificar.
+- **DNS:** `erp.example.test` resuelve a `192.0.2.10`. Usuario, carpetas, venv y código del ERP preparados de forma aislada. Puerto previsto `127.0.0.1:8010`. **HTTPS y servicios ERP todavía no activados; la URL pública aún no es utilizable.** Caddy y los servicios de Ovejita siguen sin modificar.
 - **Migración autorizada:** el usuario aprobó específicamente a las 23:08 UTC la pausa local y transferencia SSH de pedidos, clientes, boletas, historial y cuentas con hashes, con respaldo privado. Eligió definitivamente A para esta entrega y pidió completar el despliegue. El rechazo anterior quedó resuelto por esta autorización. Servidor precomprobado: ~3,1 GB RAM disponibles, 33 GB libres, puerto 8010 disponible, alcance del lector coincidente y servicios de Ovejita activos. Corte y copia privada todavía pendientes al preparar este commit.
 - **Instalación local actualizada a las 22:31:55 UTC:** `http://127.0.0.1:8765`, PID 9314, código `1dcf612`. La alternativa limitada al Mac fue aprobada: respaldo verificado y reinicio solo de la web. Lector sin detener y ninguna transferencia al servidor. Tema, Noto Sans, Inicio, Transferencias y Recepción responden 200 con MIME y contenido idénticos al código. Tablas existentes, hashes de cuentas y boletas idénticos al respaldo; integridad y claves foráneas correctas. APIs privadas rechazan acceso anónimo (401; recepción 403). Las sesiones anteriores se invalidaron, no las contraseñas. Evidencia privada `private/local-a-activation.json`. Chrome dedicado sobre localhost real: login anónimo, Noto Sans, 1180/320 sin desbordes ni errores JS; capturas privadas `private/login-live-1180.png` y `private/login-live-320.png`.
 
@@ -85,7 +87,7 @@ Se compactaron solo cabecera, herramientas, indicadores y filtros de tortas. En 
 
 ## Historial previo: Lectura → Agendadas, boleta y edición de socios
 
-- Carpeta correcta y servidor: `/Users/estebaniturra/Documents/ChatGPT/ERP Oveja`, <http://127.0.0.1:8765>. Sin despliegue ni cambios nuevos publicados.
+- Carpeta correcta y servidor: `/ruta/local/proyecto Oveja`, <http://127.0.0.1:8765>. Sin despliegue ni cambios nuevos publicados.
 - Usuario confirmó automático: comanda abierta en Lectura; cierre y saldo comprobados con comentario válido → Agendadas. Desaparece de la bandeja, conserva identidad/evidencia y marcado solo desde el pedido agendado. API de transiciones exige evidencia de agendamiento para fuente Toteat.
 - **Evidencia real:** turno abierto el 2/10; consultas 296 y luego 297 transacciones; comentarios de 107 y 93 caracteres recuperados. Solo las dos pruebas del usuario se incorporaron. Una saldada con descuento total; otra pagada por **$100 según API**, no $1. PDF real vinculado y validado: **86.637 bytes**, privado y accesible en el ticket. No se emitió ni envió boleta.
 - Comprobación HTTP real después del reinicio: servidor sano, lector conectado, ventas actualizadas hace 37 s y automático activo para el turno 2/10; boleta de 86.637 bytes disponible. Ambas siguen marcadas PRUEBA. La segunda tiene dos ítems para **30/10/2026, 18:00** y aparece en Simulaciones de octubre. La primera conserva la fecha histórica del comentario y la solicitud de marcado que realizó el usuario. Sin modificaciones de sus datos durante QA.
@@ -160,7 +162,7 @@ Servidor: <http://127.0.0.1:8765>. El proceso antiguo del origen fue identificad
 
 Navegador dedicado en segundo plano, sin competir con pestañas del usuario. Se revisaron escritorio (1180 y 1440) y móvil (390; borde320). El pequeño desborde del responsable en320 se corrigió.
 
-Comprobado en UI: pago obligatorio; nuevo pedido ficticio; doble clic sin duplicación; transición y motivo; solicitud de marcado distinta al físico; aviso único y confirmación de Esteban; cancelar/volver; cancelación guardada; bloqueo de edición de ítem cancelado; reversión con historial; recetas0.5→0.25 con agregado0.75 y restauración0.5; conteo7/reserva2/disponible5; cinco rangos; personalizado invertido rechazado; previa y copia WhatsApp coherentes con rango y símbolo**. No hay envío externo. Consola sin errores al finalizar la sesión revisada.
+Comprobado en UI: pago obligatorio; nuevo pedido ficticio; doble clic sin duplicación; transición y motivo; solicitud de marcado distinta al físico; aviso único y confirmación de Socio; cancelar/volver; cancelación guardada; bloqueo de edición de ítem cancelado; reversión con historial; recetas0.5→0.25 con agregado0.75 y restauración0.5; conteo7/reserva2/disponible5; cinco rangos; personalizado invertido rechazado; previa y copia WhatsApp coherentes con rango y símbolo**. No hay envío externo. Consola sin errores al finalizar la sesión revisada.
 
 Evidencias, exclusivamente datos ficticios:
 
@@ -172,7 +174,7 @@ Evidencias, exclusivamente datos ficticios:
 
 Flujo final: **Pendiente de marcado → Marcado solicitado → Marcado físico → Entregado**. Cancelación y reversión conservan historial. El paso experimental de producción fue retirado, conservando trazas históricas y una migración explícita para lo aún activo.
 
-Catálogo ficticio de enteros; recetas configurables; vistas demo Esteban/jefa; indicadores con denominadores y límites. Boleta en estado pendiente, sin enlace fabricado. WhatsApp alerta a Esteban queda como requisito futuro separado de los avisos in-app.
+Catálogo ficticio de enteros; recetas configurables; vistas demo Socio/jefa; indicadores con denominadores y límites. Boleta en estado pendiente, sin enlace fabricado. WhatsApp alerta a Socio queda como requisito futuro separado de los avisos in-app.
 
 No hay autenticación real, integración en vivo, importación comercial, cambios de inventario, hooks ni despliegue. El script manual permite que el usuario haga una prueba de lectura; no significa que el ERP esté conectado.
 

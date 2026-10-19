@@ -85,9 +85,19 @@ def check_revision(db,received,expected):
     if not isinstance(expected,str) or revision(db,received)!=expected:raise DomainError('La comanda cambió. Actualiza y revisa antes de decidir.',409)
 
 
-def immediate_eligible(sale,alert,order_id,decision):
-    """Evidencia cerrada recibida y saldada, con comentario vacío/incompleto."""
-    if not sale or alert or order_id or (decision and decision['decision']=='immediate'):return False
+def web_origin(sale,received):
+    from erp.toteat_web import is_web
+    if is_web((received or {}).get('channel')):return True
+    comment=(sale or {}).get('transaction',{}).get('comment') or ''
+    return channel_from_platform(parse_comment(comment,datetime.now(ZoneInfo('America/Santiago')).date())['platform'])=='Web/Mercat'
+
+
+def immediate_eligible(sale,alert,order_id,decision,received=None):
+    """Manual delivery requires payment evidence; never infers that delivery occurred."""
+    if alert or order_id or (decision and decision['decision']=='immediate'):return False
+    web=web_origin(sale,received)
+    if not sale:
+        return bool(web and (received or {}).get('web_order',{}).get('payment'))
     row=sale['transaction']
     try:
         payment=settlement(row)
@@ -95,7 +105,7 @@ def immediate_eligible(sale,alert,order_id,decision):
         if reference.tzinfo is None:reference=reference.replace(tzinfo=timezone.utc)
         parsed=parse_comment(row.get('comment') or '',reference.astimezone(ZoneInfo('America/Santiago')).date())
     except (ValueError,TypeError,KeyError):return False
-    if channel_from_platform(parsed['platform'])=='Web/Mercat':return False
+    if web:return True
     return bool(parsed['issues'] or any(w in ('telefono_pendiente','telefono_por_revisar') for w in parsed['warnings']))
 
 
@@ -130,7 +140,7 @@ def context(store,received,include_history=False):
         except (ValueError,TypeError):closed_at=None;reference_time=datetime.now(timezone.utc)
         result['closed_at']=closed_at
         result['closed_payload_received']=bool(sale and closed_at)
-        result['can_classify_immediate']=immediate_eligible(sale,alert,order_id,decision)
+        result['can_classify_immediate']=immediate_eligible(sale,alert,order_id,decision,received)
         result['parsed']=parse_comment(original,reference_time.astimezone(ZoneInfo('America/Santiago')).date())
         result['channel']=channel_from_platform(result['parsed']['platform'])
         result['web_delivery_review']=result['channel']=='Web/Mercat'
@@ -141,7 +151,6 @@ def context(store,received,include_history=False):
             result['channel']='Web/Mercat'
             result['web_delivery_review']=True
             result['web_order']=web
-            result['can_classify_immediate']=False
             # La evidencia financiera de una venta cerrada tiene prioridad.
             if not sale and web.get('payment') and not alert:
                 result['payment']=web['payment']
@@ -153,8 +162,11 @@ def context(store,received,include_history=False):
         labels={'nombre_pendiente':'Nombre y apellido','fecha_pendiente':'Fecha de entrega','horario_pendiente':'Hora de entrega','telefono_pendiente':'Teléfono','telefono_por_revisar':'Teléfono por revisar','dia_semana_no_coincide':'Día y fecha no coinciden'}
         result['missing_fields']=[labels.get(code,'Comentario por revisar') for code in result['parsed']['issues']+result['parsed']['warnings'] if code in labels or code.startswith('campo_repetido_')]
         result['review_state']='delivered_immediate' if decision and decision['decision']=='immediate' else 'scheduled' if order_id else 'waiting_closed_payload' if closed_at and not sale else 'payment_review' if closed_at and not result['payment'] else 'schedule_incomplete' if result['payment'] and result['can_classify_immediate'] else 'source_review' if closed_at else 'waiting_close_payment'
-        if result['web_delivery_review'] and not order_id and not alert:
+        if result['web_delivery_review'] and not order_id and not alert and not (decision and decision['decision']=='immediate'):
             result['review_state']='web_paid_pending_fulfillment' if result['payment'] else 'web_payment_review'
+        if decision and decision['decision']=='immediate':
+            evidence=db.execute("SELECT after_json FROM reception_events WHERE source_id=? AND action='venta_inmediata_confirmada' ORDER BY id DESC LIMIT 1",(key,)).fetchone()
+            result['delivery_confirmation']=json.loads(evidence[0]).get('confirmation') if evidence else None
         return result
 
 
@@ -185,7 +197,7 @@ def schedule(store,received,data,partner,reason,request_id,expected):
     return saved
 
 
-def decide(store,received,decision,partner,reason,expected):
+def decide(store,received,decision,partner,reason,expected,confirmation=None):
     if decision not in ('immediate','review'):raise DomainError('Decisión no válida.')
     reason=clean_text(reason,'Motivo de revisión',maximum=500);key=received['key']
     with store.connect() as db:
@@ -194,15 +206,20 @@ def decide(store,received,decision,partner,reason,expected):
         if before and before['decision']==decision:return dict(before)
         check_revision(db,received,expected);require_bindable(db,key)
         if linked_order(db,key):raise DomainError('La comanda ya tiene un pedido. Revisa ese pedido sin duplicarlo.',409)
+        after={'decision':decision,'delivery_status':'Entregada inmediata' if decision=='immediate' else None,'payment_recorded':False,'stock_movement':False}
         if decision=='immediate':
-            from erp.toteat_web import is_web
-            if is_web(received.get('channel')):raise DomainError('Un pedido web requiere confirmar su modalidad y entrega por separado.',409)
             sale=db.execute('SELECT payload_json FROM reception_sources WHERE source_id=?',(key,)).fetchone()
+            sale=json.loads(sale[0]) if sale else None
             alert=db.execute('SELECT * FROM order_source_alerts WHERE source_id=?',(key,)).fetchone()
-            if not immediate_eligible(json.loads(sale[0]) if sale else None,alert,None,before):
-                raise DomainError('Requiere venta cerrada y saldada recibida, comentario vacío o incompleto y ninguna anulación.',409)
+            if not immediate_eligible(sale,alert,None,before,received):
+                raise DomainError('La entrega inmediata requiere pago validado, ninguna anulación y una comanda sin agendar.',409)
+            if web_origin(sale,received):
+                if not isinstance(confirmation,dict) or confirmation.get('delivered') is not True or confirmation.get('fulfillment') not in ('retiro','despacho'):
+                    raise DomainError('Confirma la modalidad y que los productos del pedido web ya fueron entregados.')
+                after['confirmation']={'delivered':True,'fulfillment':confirmation['fulfillment']}
+                after['payment_evidence']=settlement(sale['transaction']) if sale else received['web_order']['payment']
         db.execute('INSERT INTO reception_decisions(source_id,decision,partner_username,reason,updated_at) VALUES(?,?,?,?,?) ON CONFLICT(source_id) DO UPDATE SET decision=excluded.decision,partner_username=excluded.partner_username,reason=excluded.reason,version=version+1,updated_at=excluded.updated_at',(key,decision,partner['username'],reason,now()))
-        event(store,db,key,'venta_inmediata_confirmada' if decision=='immediate' else 'revision_reabierta',partner['username'],reason,dict(before) if before else None,{'decision':decision,'delivery_status':'Entregada inmediata' if decision=='immediate' else None,'payment_recorded':False,'stock_movement':False})
+        event(store,db,key,'venta_inmediata_confirmada' if decision=='immediate' else 'revision_reabierta',partner['username'],reason,dict(before) if before else None,after)
         return dict(db.execute('SELECT * FROM reception_decisions WHERE source_id=?',(key,)).fetchone())
 
 

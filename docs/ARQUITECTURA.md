@@ -1,6 +1,6 @@
 # Arquitectura y desarrollo
 
-Proyecto personal de Esteban Iturra, desarrollado con asistencia técnica y revisión incremental.
+Proyecto personal de Responsable del proyecto, desarrollado con asistencia técnica y revisión incremental.
 
 ## Tecnologías
 

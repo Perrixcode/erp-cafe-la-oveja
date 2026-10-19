@@ -29,7 +29,7 @@ Cambiar dominio: crear DNS, ajustar `OVEJA_PUBLIC_ORIGIN` y bloque Caddy, valida
 
 ## Estado de despliegue y reversión
 
-ERP activo en https://erp.loxby.cl con diseño A. El lector local está deshabilitado y localhost solo redirige al HTTPS. Los datos operativos permanecen en `/var/lib/oveja-erp`; nunca volver a habilitar dos escritores sin conciliación.
+ERP activo en https://erp.example.test con diseño A. El lector local está deshabilitado y localhost solo redirige al HTTPS. Los datos operativos permanecen en `/var/lib/oveja-erp`; nunca volver a habilitar dos escritores sin conciliación.
 
 El código está versionado en `/opt/oveja-erp/releases/` y `app` apunta a la versión activa. Ante un fallo de código, detener el lector, apuntar `app` a la versión anterior verificada y reiniciar solo los servicios ERP. Conservar la base de producción actual: restaurar una copia antigua podría perder movimientos posteriores.
 

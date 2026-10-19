@@ -44,7 +44,7 @@ def export_snapshot(database,destination,names=None,evidence_root=None):
         sender=row.pop('remitente')
         row['cashier_id']=hashlib.sha256(str(sender).encode()).hexdigest() if sender else 'unknown'
         row['cajera']=names.get(sender,'Sin identificar (histórico)')
-        if row['cajera']=='Esteban (dueño)':row['cajera']='Esteban (socio)'
+        if row['cajera']=='Socio (dueño)':row['cajera']='Socio (socio)'
         fingerprint=row.pop('huella');row['photo']=None;row['selected_sale']=None
         if isinstance(fingerprint,str) and len(fingerprint)==64 and all(c in '0123456789abcdef' for c in fingerprint):
             for extension,kind in [('jpg','image/jpeg'),('png','image/png'),('webp','image/webp')]:

@@ -22,12 +22,12 @@ class ExpandedTests(unittest.TestCase):
 
     def test_stock_reserved_x_zero_unknown_and_no_double_subtract(self):
         data={'flavor':'Chocolate','size':'20 personas','physical':7,'reserved':3}
-        self.store.update_stock(data,'Esteban demo','Reservar tres',0)
+        self.store.update_stock(data,'Socio demo','Reservar tres',0)
         self.order_with('DEMO-CHO-20',2)
         self.assertEqual(stock_summary(self.store.stock())['available'],4)
-        data['reserved']=0; self.store.update_stock(data,'Esteban demo','Liberar todas',1)
+        data['reserved']=0; self.store.update_stock(data,'Socio demo','Liberar todas',1)
         self.assertEqual(stock_summary(self.store.stock())['available'],7)
-        data.update(physical=None,reserved=2); self.store.update_stock(data,'Esteban demo','Conteo desconocido',2)
+        data.update(physical=None,reserved=2); self.store.update_stock(data,'Socio demo','Conteo desconocido',2)
         self.assertIsNone(stock_summary(self.store.stock())['available'])
         self.assertEqual(len(self.store.stock_history()),3)
         self.assertEqual(Store(self.store.path).stock(),self.store.stock())
@@ -101,7 +101,7 @@ class ExpandedTests(unittest.TestCase):
         self.assertEqual(summarize([order])['metrics']['marked'],0)
         with self.assertRaises(DomainError):self.store.transition(order['id'],item,'marcado_solicitado','Jefa demo','Click repetido',order['version']-1)
         self.assertEqual(len(self.store.notifications()),1)
-        order=self.store.transition(order['id'],item,'marcado','Esteban demo','Ya está marcado',order['version'])
+        order=self.store.transition(order['id'],item,'marcado','Socio demo','Ya está marcado',order['version'])
         self.assertEqual(self.store.notifications(),[])
         self.assertEqual(summarize([order])['metrics']['marked'],3)
         self.assertEqual(self.store.analytics([order])['mark_samples'],1)

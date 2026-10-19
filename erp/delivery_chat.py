@@ -121,6 +121,35 @@ def totals(rows):
             'unknown_amounts':sum(r['amount_clp'] is None for r in rows),'pending':len(rows)-len(base)}
 
 
+def comparison(summary, fee, count):
+    return {'base_amount_difference':None if fee is None or not summary['records'] else summary['base']-fee,
+            'gross_amount_difference':None if fee is None or not summary['records'] else summary['known_gross']-fee,
+            'base_count_difference':None if count is None or not summary['records'] else summary['base_records']-count,
+            'candidate_count_difference':None if count is None or not summary['records'] else summary['records']-count,
+            'matched_by_order':False}
+
+
+def metrics(rows, previous=None):
+    """Documentary metrics: a ficha is not proof of an executed delivery."""
+    t=totals(rows);previous=totals(previous) if previous is not None else None
+    average=t['base']/t['base_records'] if t['base_records'] else None
+    prior=previous['base']/previous['base_records'] if previous and previous['base_records'] else None
+    def rate(statuses):
+        count=sum(r['analysis_status'] in statuses for r in rows)
+        return {'count':count,'denominator':len(rows),'percent':round(count*100/len(rows),2) if rows else None}
+    days=[dict(day=day,**totals([r for r in rows if r['sent_at'][:10]==day])) for day in sorted({r['sent_at'][:10] for r in rows})]
+    return {'average_base':round(average,2) if average is not None else None,
+            'amount_change_percent':round((t['base']/previous['base']-1)*100,2) if previous and previous['base'] and t['base_records'] else None,
+            'count_change_percent':round((t['base_records']/previous['base_records']-1)*100,2) if previous and previous['base_records'] and t['base_records'] else None,
+            'previous_average_base':round(prior,2) if prior is not None else None,
+            'average_change_percent':round((average/prior-1)*100,2) if average is not None and prior else None,
+            'highest_volume_days':[d['day'] for d in days if d['base_records']==max((x['base_records'] for x in days),default=0) and d['base_records']],
+            'highest_amount_days':[d['day'] for d in days if d['base']==max((x['base'] for x in days),default=0) and d['base_records']],
+            'pending':rate(set(STATUS)-{'structured_subtotal'}),
+            'possible_duplicates':rate({'pending_possible_duplicate','pending_duplicate_or_reassigned'}),
+            'attempts_under_review':rate({'pending_failed_attempt_payment'})}
+
+
 def context_incidents(summary):
     result=[]
     additional=summary.get('additional_text_only_attempt')
@@ -138,10 +167,14 @@ def view(store,month):
         batch=db.execute('SELECT * FROM delivery_chat_batches WHERE month=?',(month,)).fetchone()
         if not batch:return {'month':month,'available':False,'payment_executed':False}
         rows=[json.loads(r[0]) for r in db.execute('SELECT payload_json FROM delivery_chat_records WHERE source_sha256=? ORDER BY day,record_id',(batch['source_sha256'],))]
+        previous_month=(date.fromisoformat(month+'-01')-timedelta(days=1)).strftime('%Y-%m')
+        previous_batch=db.execute('SELECT source_sha256 FROM delivery_chat_batches WHERE month=?',(previous_month,)).fetchone()
+        previous=[json.loads(r[0]) for r in db.execute('SELECT payload_json FROM delivery_chat_records WHERE source_sha256=?',(previous_batch[0],))] if previous_batch else None
     summary=json.loads(batch['summary_json']);daily=[]
     for day in finance['days']:
         selected=[r for r in rows if r['sent_at'][:10]==day['day']]
-        daily.append(dict(day=day['day'],**totals(selected),toteat=day['fee'],toteat_records=day['records']))
+        count=day['records'] if day['fee'] is not None else None
+        daily.append(dict(day=day['day'],**totals(selected),toteat=day['fee'],toteat_records=count,toteat_review_count=day['review_count'],comparison=comparison(totals(selected),day['fee'],count)))
     weeks={}
     for day in daily:
         when=date.fromisoformat(day['day']);monday=when-timedelta(days=when.weekday())
@@ -151,19 +184,24 @@ def view(store,month):
     for value in weeks.values():
         selected=[r for r in rows if value['start']<=r['sent_at'][:10]<=value['end']]
         known=[d for d in value['days'] if d['toteat'] is not None]
-        weekly.append(dict(start=value['start'],end=value['end'],**totals(selected),
-                           toteat=sum(d['toteat'] for d in known) if len(known)==len(value['days']) else None))
+        complete=len(known)==len(value['days'])
+        fee=sum(d['toteat'] for d in known) if complete else None
+        count=sum(d['toteat_records'] for d in known) if complete else None
+        weekly.append(dict(start=value['start'],end=value['end'],**totals(selected),toteat=fee,toteat_records=count,comparison=comparison(totals(selected),fee,count)))
     drivers=sorted({r['driver'] for r in rows if r['driver']})
     couriers=[dict(driver=driver,**totals([r for r in rows if r['driver']==driver])) for driver in drivers]
     if any(r['driver'] is None for r in rows):couriers.append(dict(driver=None,**totals([r for r in rows if r['driver'] is None])))
+    for courier in couriers:
+        courier['metrics']=metrics([r for r in rows if r['driver']==courier['driver']],None if previous is None else [r for r in previous if r['driver']==courier['driver']])
     fields=('id','sent_at','driver','amount_clp','analysis_status','edited','customer','line_start','line_end','message_id','suggested_amount_clp')
     return {'available':True,'month':month,'source_sha256':batch['source_sha256'],'imported_at':batch['imported_at'],'actor':batch['actor'],
             'source_library_file_id':batch['source_library_file_id'],'package_library_file_id':batch['library_file_id'],
-            'totals':totals(rows),'days':daily,'weeks':weekly,'couriers':couriers,
+            'totals':totals(rows),'days':daily,'weeks':weekly,'couriers':couriers,'metrics':metrics(rows,previous),'previous_month':previous_month,
             'records':[{**{k:r[k] for k in fields if k in r},'status_label':STATUS[r['analysis_status']]} for r in rows],
             'incidents':context_incidents(summary),'labels':STATUS,
             'coverage':{k:summary.get(k) for k in ('image_omissions','deleted_messages','edited_delivery_messages','edited_delivery_records')},
             'toteat':{'total':finance['totals']['fee'] if finance['totals']['known_days']==finance['totals']['total_days'] else None,
+                      'last_sync':finance['last_sync'],'review_count':finance['totals']['review_count'],
                       'records':finance['totals']['records'],'known_days':finance['totals']['known_days'],'total_days':finance['totals']['total_days']},
             'date_basis':'message_local_date_without_timezone','payment_executed':False,'final_settlement':False}
 

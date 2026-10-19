@@ -183,7 +183,7 @@ class ReceptionTests(unittest.TestCase):
         for extra in ('', '\nTeléfono: 000000000\nFecha: 30/10/2026\nHorario: 18:00'):
             row,candidate,received=self.prepare(comment='Nombre: Cliente web ficticio\nPlataforma: WEB'+extra)
             details=reception.context(self.store,received)
-            self.assertTrue(details['web_delivery_review']);self.assertFalse(details['can_classify_immediate'])
+            self.assertTrue(details['web_delivery_review']);self.assertTrue(details['can_classify_immediate'])
             with self.assertRaisesRegex(ValueError,'web_delivery_contract_requires_review'):
                 self.store.import_toteat_schedule(self.scope,row,candidate)
             self.assertIsNone(details['decision']);self.assertIsNone(details['order_id'])

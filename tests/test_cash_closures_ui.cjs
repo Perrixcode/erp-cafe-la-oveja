@@ -1,0 +1,5 @@
+const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs');
+const sandbox={window:{addEventListener(){}},Intl,Date,URL,structuredClone,Set,console};vm.runInNewContext(fs.readFileSync(__dirname+'/../static/cash-closures.js','utf8'),sandbox);const h=sandbox.window.OvejaClosures.helpers;
+test('blank amounts stay unknown, explicit zero is zero',()=>{assert.equal(h.num(''),null);assert.equal(h.num('0'),0);assert.equal(h.total({'20000':1,'10000':null}),null);assert.equal(h.total({'20000':1,'10000':0}),20000);});
+test('Chile local midnight and winter are not browser timezone',()=>{assert.equal(h.instant('2026-10-16T23:59'),'2026-10-17T02:59:00.000Z');assert.equal(h.instant('2026-07-16T08:00'),'2026-07-16T12:00:00.000Z');assert.equal(h.instant(''),null);assert.throws(()=>h.instant('2026-09-06T00:30'),/no existe/);});
+test('printed QR link binds the same complete UUID',()=>{const id='9967ee25-6877-4e43-bffe-d5209a3dce34';assert.equal(h.bagID('https://erp.example.test/?module=cash&bag='+id),id);assert.equal(h.bagID(id),id);assert.throws(()=>h.bagID('BOL-000001'));});

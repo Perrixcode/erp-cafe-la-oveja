@@ -8,13 +8,49 @@
   <title>ERP Oveja · Cocina y Café</title>
   <link rel="stylesheet" href="/styles.css">
   <link rel="stylesheet" href="/theme.css">
+  <link rel="stylesheet" href="/tasks.css">
+  <link rel="stylesheet" href="/payables.css">
+  <link rel="stylesheet" href="/procurement.css">
+  <link rel="stylesheet" href="/workspace.css">
+  <link rel="stylesheet" href="/design-system.css">
+  <link rel="stylesheet" href="/technical-sheets.css">
+  <link rel="stylesheet" href="/document-center.css">
+  <link rel="stylesheet" href="/cash-bags.css">
+  <link rel="stylesheet" href="/cash-control.css">
+  <link rel="stylesheet" href="/cash-closures.css">
+  <link rel="stylesheet" href="/supplier-accounts.css">
+  <script src="/loading-state.js" defer></script>
   <script src="/notifications.js" defer></script>
-  <script src="/app.js" defer></script>
+  <script src="/image-attachment.js" defer></script>
+  <script src="/date-range.js" defer></script>
+  <script src="/app.js?v=payment-credit-local-20261015" defer></script>
   <script src="/reception.js" defer></script>
+  <script src="/stock-count.js" defer></script>
   <script src="/transfers.js" defer></script>
   <script src="/home.js" defer></script>
   <script src="/delivery.js" defer></script>
   <script src="/delivery-chat.js" defer></script>
+  <script src="/delivery-review.js" defer></script>
+  <script src="/supplier-opening.js" defer></script>
+  <script src="/payables.js?v=payment-credit-local-20261015" defer></script>
+  <script src="/supplier-account.js?v=payment-clarity-local-20261015" defer></script>
+  <script src="/joint-payment.js?v=payment-save-optional-20261015" defer></script>
+  <script src="/supplier-accounts.js" defer></script>
+  <script src="/payment-proposal.js" defer></script>
+  <script src="/supplier-directory.js" defer></script>
+  <script src="/supply-planning.js" defer></script>
+  <script src="/document-intake.js" defer></script>
+  <script src="/purchase-agenda.js" defer></script>
+  <script src="/procurement.js" defer></script>
+  <script src="/tasks.js" defer></script>
+  <script src="/technical-sheets.js" defer></script>
+  <script src="/document-center.js" defer></script>
+  <script src="/cash-bags.js" defer></script>
+  <script src="/cash-control.js" defer></script>
+  <script src="/cash-review.js" defer></script>
+  <script src="/cash-submit-review.js" defer></script><script src="/cash-insights.js" defer></script>
+  <script src="/cash-toteat.js" defer></script>
+  <link rel="stylesheet" href="/cashier-v2.css"><script src="/cashier-v2.js" defer></script><script src="/cashier-v2-server.js" defer></script><script src="/cash-closures.js" defer></script>
 </head>
 <body class="auth-locked">
   <main id="access-screen" class="access-screen">
@@ -37,7 +73,7 @@
       </div><small class="access-footer">ERP Oveja · Cocina y Café · Acceso del equipo</small>
     </section>
   </main>
-  <a class="skip-link" href="#main">Ir a pedidos</a>
+  <a class="skip-link" href="#main">Ir al contenido</a>
   <aside class="sidebar" aria-label="Navegación principal">
     <a class="brand" href="/" aria-label="Café La Oveja, inicio"><span>OVEJA<span class="brand-dot">.</span></span><small>COCINA Y CAFÉ</small></a>
     <div class="workspace-label">ESPACIO DE TRABAJO</div>
@@ -49,7 +85,7 @@
     <header class="topbar"><div class="breadcrumb">OVEJA <span>/</span> <strong id="breadcrumb-module">Tortas y pedidos</strong></div><button id="account-button" class="account-summary" aria-label="Mi cuenta y cerrar sesión"><strong id="account-name"></strong><span id="account-role"></span></button><div class="notification-anchor"><button id="notification-bell" class="notification-bell" aria-label="Solicitudes de marcado: 0 pendientes" aria-expanded="false" aria-controls="notification-popup"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9Z"/><path d="M10 21h4"/></svg><span id="notification-badge" class="notification-badge hidden">0</span></button><section id="notification-popup" class="notification-popup hidden" aria-labelledby="notification-title"><div class="notification-heading"><div><h2 id="notification-title">Solicitudes de marcado</h2><p id="notification-summary" aria-live="polite">Sin solicitudes pendientes</p></div><button id="notification-close" class="icon-button" aria-label="Cerrar notificaciones">×</button></div><div class="notification-settings"><button id="notification-sound" class="text-button" aria-pressed="false">Activar sonido</button><span id="notification-audio-status">Requiere activarlo en esta pestaña</span></div><div id="notification-list"></div><p id="notification-update-status" class="hint">Se actualiza cada 15 segundos.</p><p class="hint">Abrir una solicitud no marca la torta. Sigue pendiente hasta confirmar el marcado.</p></section></div></header>
     <main id="main">
       <nav id="module-mobile" class="module-mobile" aria-label="Módulos del ERP"></nav>
-      <section id="module-placeholder" class="module-placeholder hidden" aria-labelledby="module-title"><div class="eyebrow">ERP OVEJA · COCINA Y CAFÉ</div><h1 id="module-title"></h1><p class="module-subtitle">Un espacio para cada parte del negocio.</p><nav id="module-subtabs" class="module-subtabs" aria-label="Secciones del módulo"></nav><div id="home-workspace" class="hidden"></div><div id="delivery-chat-workspace" class="hidden"><form id="chat-filter" class="delivery-filter"><label class="field">Mes del registro<input name="month" type="month" min="2026-09" required></label><label class="field">Repartidor<select name="driver"><option value="all">Todos los repartidores</option></select></label><label class="field">Vista<select name="group"><option value="days">Por día</option><option value="weeks">Por semana</option><option value="couriers">Por repartidor</option><option value="incidents">Incidencias</option></select></label><button class="button secondary" type="submit">Actualizar registro</button></form><div id="chat-results" aria-live="polite"></div></div><div id="delivery-workspace" class="hidden"><form id="fees-filter" class="delivery-filter"><label class="field">Mes de consulta<input name="month" type="month" min="2026-09" required></label><button class="button primary" type="submit">Actualizar importes ↻</button><span id="delivery-sync-note" class="hint" role="status"></span></form><div id="delivery-results" aria-live="polite"></div></div><div id="transfer-workspace" class="hidden"><form id="transfer-filter" class="transfer-filters"><label>Desde<input name="start" type="date"></label><label>Hasta<input name="end" type="date"></label><label>Estado<select name="status"><option value="all">Todas las revisiones</option><option value="pending">Pendientes de revisión</option><option value="compatible">Datos compatibles</option><option value="review">Requieren revisión · todas</option><option value="reviewed">Revisadas por socio</option></select></label><label>Cajera<select name="cashier"><option value="">Todas las cajeras</option></select></label><button class="button secondary" type="submit">Actualizar</button><button class="button secondary" type="button" id="transfer-export">Descargar CSV</button></form><div id="transfer-results" aria-live="polite"></div></div><div class="module-empty"><div class="module-empty-icon" aria-hidden="true">▦</div><span class="timing-label">En preparación</span><h2 id="module-section-title"></h2><p>Este espacio todavía no tiene datos ni operaciones habilitadas.</p></div></section>
+      <section id="module-placeholder" class="module-placeholder hidden" aria-labelledby="module-title"><div class="eyebrow">ERP OVEJA · COCINA Y CAFÉ</div><h1 id="module-title"></h1><p class="module-subtitle">Un espacio para cada parte del negocio.</p><nav id="module-subtabs" class="module-subtabs" aria-label="Secciones del módulo"></nav><div id="supplier-opening-workspace" class="hidden"></div><div id="home-workspace" class="hidden"></div><div id="documents-workspace" class="hidden" aria-live="polite"></div><div id="delivery-review-workspace" class="hidden"><form id="review-filter" class="delivery-filter"><label class="field">Período<input name="month" type="month" min="2026-09" required></label><div class="field review-driver-field"><span>Repartidores</span><details id="review-driver-picker"><summary id="review-driver-selection">Todos los repartidores</summary><div class="review-driver-menu"><label class="review-driver-option"><input type="checkbox" id="review-driver-all" checked><span>Todos los repartidores</span></label><fieldset><legend>Elegir uno o varios</legend><div id="review-driver-options"></div></fieldset><p class="hint">Marca los repartidores que quieres incluir.</p><div class="review-driver-actions"><button type="button" class="button secondary" data-review-clear>Limpiar</button><button type="submit" class="button primary">Aplicar selección</button></div></div></details></div><label class="field">Agrupar<select name="group"><option value="days">Por día</option><option value="weeks">Por semana</option><option value="month">Por mes</option><option value="couriers">Por repartidor</option></select></label><button class="button secondary" type="submit">Actualizar</button></form><div id="review-results" aria-live="polite"></div></div><div id="delivery-chat-workspace" class="hidden"><form id="chat-filter" class="delivery-filter"><label class="field">Mes del registro<input name="month" type="month" min="2026-09" required></label><label class="field">Repartidor<select name="driver"><option value="all">Todos los repartidores</option></select></label><label class="field">Vista<select name="group"><option value="days">Por día</option><option value="weeks">Por semana</option><option value="couriers">Por repartidor</option><option value="incidents">Incidencias</option></select></label><button class="button secondary" type="submit">Actualizar registro</button></form><div id="chat-results" aria-live="polite"></div></div><div id="delivery-workspace" class="hidden"><form id="fees-filter" class="delivery-filter"><label class="field">Mes de consulta<input name="month" type="month" min="2026-09" required></label><button class="button primary" type="submit">Actualizar importes ↻</button><span id="delivery-sync-note" class="hint" role="status"></span></form><div id="delivery-results" aria-live="polite"></div></div><div id="transfer-workspace" class="hidden"><form id="transfer-filter" class="transfer-filters"><label>Desde<input name="start" type="date"></label><label>Hasta<input name="end" type="date"></label><label>Estado<select name="status"><option value="all">Todas las revisiones</option><option value="pending">Pendientes de revisión</option><option value="compatible">Datos compatibles</option><option value="review">Requieren revisión · todas</option><option value="reviewed">Revisadas por socio</option></select></label><label>Cajera<select name="cashier"><option value="">Todas las cajeras</option></select></label><button class="button secondary" type="submit">Actualizar</button><button class="button secondary" type="button" id="transfer-export">Descargar CSV</button></form><div id="transfer-results" aria-live="polite"></div></div><div class="module-empty"><div class="module-empty-icon" aria-hidden="true">▦</div><span class="timing-label">En preparación</span><h2 id="module-section-title"></h2><p>Este espacio todavía no tiene datos ni operaciones habilitadas.</p></div></section>
       <div id="tortas-workspace">
       <div class="demo-banner"><span class="demo-tag">DEMO</span><span id="data-notice"><strong>Pedidos y conteos ficticios.</strong> Catálogo demo · sin conexión a Toteat.</span><span class="connection"><span class="status-dot"></span> Sin sincronización</span></div>
       <section class="page-heading"><div><div class="eyebrow">OVEJA · PEDIDOS Y PRODUCCIÓN</div><h1>Tortas y pedidos</h1><p>Agenda, entregas y coordinación de producción.</p></div><button id="new-order" class="button primary admin-only"><span aria-hidden="true">＋</span> Nuevo pedido demo</button></section>

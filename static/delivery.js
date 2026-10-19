@@ -20,7 +20,7 @@ window.OvejaFees=(()=>{
     const request=++sequence;busy=true;
     const button=$('#fees-filter button');button.disabled=true;
     $('#delivery-sync-note').textContent=refresh?'Solicitando actualización…':'Consultando última lectura…';
-    if(!snapshot)$('#delivery-results').innerHTML='<div class="empty compact">Preparando el resumen de reparto…</div>';
+    const progress=window.OvejaLoading.begin($('#delivery-results'),{label:'Cargando resumen de reparto…',blocking:!snapshot});
     try{
       if(refresh)await api('/api/delivery/refresh','POST',{});
       const data=await api('/api/delivery/fees?'+new URLSearchParams({month}));
@@ -31,8 +31,8 @@ window.OvejaFees=(()=>{
       if(request!==sequence||!visible())return;
       lastError=error.message;
       $('#delivery-sync-note').textContent='No se pudo actualizar. Se conserva la lectura anterior.';
-      if(snapshot)render();else $('#delivery-results').innerHTML=`<p class="error" role="alert">${escapeHTML(lastError)}</p>`;
-    }finally{if(request===sequence){busy=false;button.disabled=false;}}
+      if(snapshot)render();progress.fail(lastError,()=>load());
+    }finally{progress.done();if(request===sequence){busy=false;button.disabled=false;}}
   }
   function dayStatus(day){
     if(day.state==='error')return 'Revisar consulta · lectura anterior conservada';

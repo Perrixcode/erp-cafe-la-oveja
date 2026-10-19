@@ -20,7 +20,7 @@ Supuestos de diseño para revisar con el usuario: horario de retiro `America/San
 
 - Módulo de tortas y dulces ENTEROS: también cheesecake, pie y kuchen cuando el catálogo real los clasifique así. Nunca trozos/porciones.
 - `**` = cantidad manual de enteros reservados para trozar y mantener vitrinas; 0..X. Físico menos reserva determina venta entera, sin volver a restar encargos.
-- Flujo: pendiente de marcado → marcado solicitado por la jefa → confirmado por Esteban → entregado. El estado no indica si las bases están elaboradas.
+- Flujo: pendiente de marcado → marcado solicitado por la jefa → confirmado por Socio → entregado. El estado no indica si las bases están elaboradas.
 - Alerta inicial dentro del ERP; WhatsApp solicitado para una etapa posterior, sin envío en esta versión.
 - Bizcocho: 10/20 personas. Hojarasca, mixta y zanahoria: solo 20. No imponer esos tamaños a otros dulces enteros.
 - Bases iniciales para 20: Amor hojarasca 10 (provisional editable), Hoja manjar 14, Mixta 0,5 bizcocho chocolate + 6 hojarascas. Rellenos y recetas no confirmadas quedan pendientes.

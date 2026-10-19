@@ -11,10 +11,12 @@ import tempfile
 import threading
 
 DATABASES = ('private/toteat-reader.sqlite3', 'data/erp-demo.sqlite3', 'private/partner-auth.sqlite3')
+SALON_DOCUMENT = 'private/documents/salon/Conteo_semanal_lunes_a_viernes.pdf'
+LABELS_DOCUMENT = 'private/documents/salon/bolsas-000001-000020-qr.pdf'
 
 
 def allowed(name):
-    return name in DATABASES or bool(re.fullmatch(r'private/receipts/[a-f0-9]{64}\.pdf', name))
+    return name in DATABASES or name in (SALON_DOCUMENT,LABELS_DOCUMENT) or bool(re.fullmatch(r'private/receipts/[a-f0-9]{64}\.pdf', name))
 
 
 def digest(path):
@@ -55,6 +57,24 @@ def verify_backup(directory):
             metadata=files.get(name)
             if not metadata or metadata['sha256']!=sha256 or metadata['bytes']!=size:
                 raise ValueError('El respaldo no contiene una boleta adjunta íntegra.')
+    with closing(sqlite3.connect((directory/'data/erp-demo.sqlite3').resolve().as_uri()+'?mode=ro',uri=True)) as db:
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='dc_assets'").fetchone():
+            for sha256,kind,size,content in db.execute('SELECT sha256,storage,bytes,content FROM dc_assets'):
+                if kind in ('legacy-salon','legacy-labels'):
+                    metadata=files.get(SALON_DOCUMENT if kind=='legacy-salon' else LABELS_DOCUMENT)
+                    if not metadata or metadata['sha256']!=sha256 or metadata['bytes']!=size:
+                        raise ValueError('El respaldo no contiene el documento Salón íntegro.')
+                elif kind!='database' or not content or len(content)!=size or hashlib.sha256(content).hexdigest()!=sha256:
+                    raise ValueError('Un documento del respaldo no pasó la verificación.')
+    with closing(sqlite3.connect((directory/'data/erp-demo.sqlite3').resolve().as_uri()+'?mode=ro',uri=True)) as db:
+        if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='cv2_submissions'").fetchone():
+            from erp.cashier_v2 import verify_submission
+            db.row_factory=sqlite3.Row
+            try:
+                for submission in db.execute('SELECT * FROM cv2_submissions'):
+                    verify_submission(db,submission)
+            except Exception as exc:
+                raise ValueError('El respaldo V2 no conserva firma, snapshot y evidencia íntegros.') from exc
     return manifest
 
 
@@ -81,6 +101,19 @@ def create_backup(root, destination=None):
                 raise ValueError('Una boleta requiere revisión antes del respaldo.')
             target=temporary/name;target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
             shutil.copyfile(source,target);target.chmod(0o600)
+        # Existing documents stay in place; new uploads live in SQLite.
+        legacy={}
+        with closing(sqlite3.connect(temporary/'data/erp-demo.sqlite3')) as db:
+            if db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='dc_assets'").fetchone():
+                legacy={r[0]:(r[1],r[2]) for r in db.execute("SELECT storage,sha256,bytes FROM dc_assets WHERE storage<>'database'")}
+        for kind,name in [('legacy-salon',SALON_DOCUMENT),('legacy-labels',LABELS_DOCUMENT)]:
+            reference=legacy.get(kind)
+            if reference or (root/name).exists():
+                source=regular(root,name)
+                if reference and (digest(source)!=reference[0] or source.stat().st_size!=reference[1]):
+                    raise ValueError('Un documento de Salón requiere revisión antes del respaldo.')
+                target=temporary/name;target.parent.mkdir(parents=True,exist_ok=True,mode=0o700)
+                shutil.copyfile(source,target);target.chmod(0o600)
         files={str(f.relative_to(temporary)):{'bytes':f.stat().st_size,'sha256':digest(f)} for f in temporary.rglob('*') if f.is_file()}
         now=datetime.now(timezone.utc)
         manifest={'version':1,'created_at':now.isoformat(),'files':files,'toteat_credentials_included':False,

@@ -1,0 +1,20 @@
+/* Final human review uses only the immutable snapshot fetched for this confirmation. */
+'use strict';
+window.OvejaSubmitReview=(()=>{
+ const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const money=v=>v===null||v===undefined?'Pendiente':new Intl.NumberFormat('es-CL',{style:'currency',currency:'CLP',maximumFractionDigits:0}).format(v);
+ const labels={cash:'Efectivo',debit:'Débito',credit:'Crédito',point_smart:'Mercado Pago Point Smart',mercat:'Mercat',transfer:'Transferencia',mp_emergency:'MP Emergencias',other:'Otros'};
+ const when=v=>v?new Intl.DateTimeFormat('es-CL',{dateStyle:'short',timeStyle:'short',timeZone:'America/Santiago'}).format(new Date(v))+' Chile':'Pendiente';
+ const table=(heads,rows)=>`<div class="cl-table-wrap"><table><thead><tr>${heads.map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${rows.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+ function render(review,message='',reason=''){
+  const c=review.closure,v=c.calculation,d=c.data;
+  return `<h2 id="cl-final-title" tabindex="-1">Revisión final del cierre</h2><p>Versión ${c.version} · revisa estos datos antes de confirmar.</p>${message?`<p class="cl-alert" role="status">${esc(message)}</p>`:''}<p data-submit-error class="cl-error" role="alert" hidden></p>
+   ${table(['Caja','Fecha comercial','Turno','Responsable','Bolsa'],[[esc(c.register_name),esc(c.business_date),esc(c.shift_name),esc(c.responsible.name),esc(c.bag?.label||'Pendiente de vincular')]])}
+   <h3>Efectivo</h3>${table(['A · Contado','B · Retenido','Ajustes posteriores','C · Bolsa'],[[money(v.A),money(v.B),money(v.post_count_net),money(v.C)]])}<p>Conteo: ${esc(when(d.counted_at))}. Sellado: ${esc(when(d.sealed_at))}. Efectivo al sellar: ${money(v.cash_at_seal)}.</p>
+   <h3>Totales cobrados por medio</h3>${table(['Medio','Total cobrado','Estado'],v.methods.map(m=>[esc(labels[m.key])+(m.name?' · '+esc(m.name):''),money(m.total),m.total===null?'Pendiente':m.used===false?'No usado':'Declarado']))}<p>Total declarado por todos los medios: <strong>${money(v.all_methods_total)}</strong>.</p>
+   <h3>Movimientos</h3>${d.movements.length?table(['Momento Chile','Movimiento','Monto','Origen → destino','Responsable / referencia'],d.movements.map(m=>[esc(when(m.occurred_at)),esc({income:'Ingreso',expense:'Egreso',custody:'Custodia',supplier:'Pago proveedor',transfer:'Traslado'}[m.kind])+' · '+(m.direction==='in'?'Entrada':'Salida'),money(m.amount),esc(m.origin||'Pendiente')+' → '+esc(m.destination||'Pendiente'),esc(m.responsible||'Pendiente')+' · '+esc(m.reference||'Sin referencia')+'<br>'+esc(m.reason||'Sin motivo')])):`<p>${d.movements_complete?'Declarado sin movimientos.':'Movimientos pendientes de revisar; vacío no significa cero.'}</p>`}
+   <h3>Diferencias y pendientes</h3>${table(['Esperado revisado','Diferencia A − esperado'],[[money(v.expected),money(v.difference)]])}<p>${esc(d.difference_explanation||'Sin explicación de diferencia registrada.')}</p><ul>${[...v.missing,...v.warnings,...(!c.bag?['Falta vincular una bolsa.']:[])].map(t=>`<li>${esc(t)}</li>`).join('')}</ul>${c.payment_comparison?.totals?.different_methods?`<p class="cl-alert">${c.payment_comparison.totals.different_methods} medios tienen diferencias con la fuente Toteat. Requieren revisión.</p>`:''}<p>Observaciones: ${esc(d.note||'Sin observaciones.')}</p>${reason?`<p>Motivo de corrección: ${esc(reason)}</p>`:''}<p>Presentar registra la declaración. La entrega física se confirma por separado.</p>
+   <div class="cl-final-actions"><p id="cl-final-question"><strong>¿Confirma que revisó esta información y desea presentar el cierre?</strong></p><div class="cl-actions"><button type="button" class="button secondary" data-submit-back>Volver y corregir</button><button type="button" class="button primary" data-submit-confirm ${!v.can_submit||!c.bag||c.status!=='draft'?'disabled data-unavailable':''}>Confirmar cierre</button></div></div>`;
+ }
+ return {render};
+})();

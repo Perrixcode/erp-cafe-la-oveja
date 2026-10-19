@@ -11,6 +11,7 @@ from erp.store import Store
 
 class WSGITransport:
     def __init__(self,environ):
+        self.client_address=(environ.get('REMOTE_ADDR','unknown'),0)
         self.command=environ['REQUEST_METHOD']
         self.path=environ.get('PATH_INFO','/')+('?' + environ['QUERY_STRING'] if environ.get('QUERY_STRING') else '')
         self.headers=Message()
@@ -26,9 +27,9 @@ class WSGITransport:
     def end_headers(self):pass
 
 
-def create_app(data_root,public_origin):
+def create_app(data_root,public_origin,bag_access_enabled=False):
     root=Path(data_root).resolve()
-    handler=handler_for(Store(root/'data/erp-demo.sqlite3'),data_root=root,public_origin=public_origin,transport=WSGITransport)
+    handler=handler_for(Store(root/'data/erp-demo.sqlite3'),data_root=root,public_origin=public_origin,transport=WSGITransport,bag_access_enabled=bag_access_enabled)
     def application(environ,start_response):
         request=handler(environ)
         if request.command not in ('GET','POST','PUT'):
@@ -40,4 +41,4 @@ def create_app(data_root,public_origin):
 
 
 def from_environment():
-    return create_app(os.environ['OVEJA_DATA_ROOT'],os.environ['OVEJA_PUBLIC_ORIGIN'])
+    return create_app(os.environ['OVEJA_DATA_ROOT'],os.environ['OVEJA_PUBLIC_ORIGIN'],bag_access_enabled=os.environ.get('OVEJA_BAG_ACCESS_ENABLED')=='1')

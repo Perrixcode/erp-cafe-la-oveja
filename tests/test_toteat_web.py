@@ -73,7 +73,7 @@ class WebReceptionTests(unittest.TestCase):
         row,candidate,key,web=self.opened()
         received=get_received(self.inbox.path,key);ctx=reception.context(self.store,received)
         self.assertEqual(ctx['review_state'],'web_paid_pending_fulfillment')
-        self.assertEqual(ctx['channel'],'Web/Mercat');self.assertFalse(ctx['can_classify_immediate'])
+        self.assertEqual(ctx['channel'],'Web/Mercat');self.assertTrue(ctx['can_classify_immediate'])
         self.assertEqual(ctx['parsed']['customer'],'Cliente web ficticio')
         self.assertEqual(ctx['parsed']['customer_phone'],'000000009')
         self.assertIsNone(ctx['parsed']['pickup_at']);self.assertIsNone(ctx['closed_at']);self.assertIsNone(ctx['order_id'])
@@ -94,7 +94,7 @@ class WebReceptionTests(unittest.TestCase):
         received=get_received(self.inbox.path,key);ctx=reception.context(self.store,received)
         self.assertEqual(ctx['review_state'],'web_paid_pending_fulfillment')
         self.assertEqual(read_inbox(self.inbox.path)['stored_orders'],1)
-        self.assertIsNone(ctx['order_id']);self.assertFalse(ctx['can_classify_immediate'])
+        self.assertIsNone(ctx['order_id']);self.assertTrue(ctx['can_classify_immediate'])
         with self.assertRaises(DomainError):reception.decide(self.store,received,'immediate',self.partner,'Prueba de bloqueo web',ctx['revision'])
 
     def test_partner_schedule_links_open_payment_then_closed_sale_to_same_order(self):
@@ -118,3 +118,58 @@ class WebReceptionTests(unittest.TestCase):
         reception.record_alert(self.store,key,'refund_review',{'source':'fixture'})
         ctx=reception.context(self.store,received)
         self.assertIsNone(ctx['payment']);self.assertFalse(ctx['can_classify_immediate'])
+
+    def test_manual_web_immediate_requires_explicit_delivery_and_survives_closing(self):
+        row,candidate,key,web=self.opened();received=get_received(self.inbox.path,key)
+        ctx=reception.context(self.store,received);before=self.store.list('2026-01-01','2026-12-31')
+        for confirmation in (None,{},dict(delivered=False,fulfillment='retiro'),dict(delivered=True,fulfillment='')):
+            with self.assertRaises(DomainError):reception.decide(self.store,received,'immediate',self.partner,'Entrega ficticia',ctx['revision'],confirmation)
+        confirm=dict(delivered=True,fulfillment='retiro')
+        result=reception.decide(self.store,received,'immediate',self.partner,'Entrega ficticia',ctx['revision'],confirm)
+        self.assertEqual(result,reception.decide(self.store,received,'immediate',self.partner,'Entrega ficticia',ctx['revision'],confirm))
+        after=reception.context(self.store,received,True);self.assertEqual(after['review_state'],'delivered_immediate');self.assertFalse(after['can_classify_immediate'])
+        self.assertEqual(after['delivery_confirmation'],confirm)
+        events=[e for e in after['history'] if e['action']=='venta_inmediata_confirmada'];self.assertEqual(len(events),1)
+        self.assertEqual(events[0]['actor'],'socio-qa');self.assertEqual(events[0]['after']['payment_evidence']['source'],'orderstatus')
+        self.assertFalse(events[0]['after']['payment_recorded']);self.assertFalse(events[0]['after']['stock_movement'])
+        candidate=dict(candidate,source_channel='webstore');reception.observe_sale(self.store,self.scope,row,candidate)
+        with self.assertRaisesRegex(ValueError,'classified_immediate'):self.store.import_toteat_schedule(self.scope,row,candidate,is_test=True)
+        self.assertEqual(reception.context(self.store,received)['review_state'],'delivered_immediate')
+        self.assertEqual(before,self.store.list('2026-01-01','2026-12-31'));self.assertEqual(self.store.stock(),[])
+        self.login();board=self.api('/api/toteat')[0];self.assertEqual(board['orders'],[]);self.assertEqual(len(board['reviewed_orders']),1)
+
+    def test_web_immediate_rejects_unpaid_stale_cancelled_and_linked_orders(self):
+        row,candidate,key,web=self.opened();received=get_received(self.inbox.path,key)
+        ctx=reception.context(self.store,received);confirm=dict(delivered=True,fulfillment='despacho')
+        web['document']['payments'][0]['amountPaid']=0
+        self.inbox.receive_detail({'ok':True,'data':web},self.scope,{web['document']['line'][0]['productCodeToteat']})
+        unpaid=get_received(self.inbox.path,key);self.assertFalse(reception.context(self.store,unpaid)['can_classify_immediate'])
+        for revision in (ctx['revision'],reception.context(self.store,unpaid)['revision']):
+            with self.assertRaises(DomainError):reception.decide(self.store,unpaid,'immediate',self.partner,'Prueba ficticia',revision,confirm)
+        web['document']['payments'][0]['amountPaid']=22000
+        self.inbox.receive_detail({'ok':True,'data':web},self.scope,{web['document']['line'][0]['productCodeToteat']})
+        received=get_received(self.inbox.path,key)
+        # Closed financial evidence overrides the prior complete web payment.
+        reception.observe_sale(self.store,self.scope,dict(row,payed=0,difference=100),candidate)
+        self.assertFalse(reception.context(self.store,received)['can_classify_immediate'])
+        reception.observe_sale(self.store,self.scope,row,candidate)
+        body=self.sos_body();ctx=reception.context(self.store,received)
+        reception.schedule(self.store,received,body['order'],self.partner,body['reason'],body['request_id'],ctx['revision'])
+        ctx=reception.context(self.store,received);self.assertFalse(ctx['can_classify_immediate'])
+        with self.assertRaises(DomainError):reception.decide(self.store,received,'immediate',self.partner,'Prueba ficticia',ctx['revision'],confirm)
+        reception.record_alert(self.store,key,'cancelled',{'source':'fixture'})
+        ctx=reception.context(self.store,received)
+        with self.assertRaises(DomainError):reception.decide(self.store,received,'immediate',self.partner,'Prueba ficticia',ctx['revision'],confirm)
+
+    def test_web_immediate_http_requires_partner_and_records_confirmation(self):
+        from urllib.error import HTTPError
+        row,candidate,key,web=self.opened();received=get_received(self.inbox.path,key)
+        body=dict(source_key=key,decision='immediate',revision=reception.context(self.store,received)['revision'],reason='Entrega ficticia HTTP',confirmation=dict(delivered=True,fulfillment='despacho'))
+        for role in ('anonymous','cashier','production'):
+            if role!='anonymous':
+                self.auth.create(role,role,'Clave-ficticia-QA-2026',role)
+                self.api('/api/partner/login',dict(username=role,password='Clave-ficticia-QA-2026'))
+            with self.assertRaises(HTTPError) as error:self.api('/api/toteat/reception/decide',body)
+            self.assertEqual(error.exception.code,403);error.exception.close()
+        self.login();self.api('/api/toteat/reception/decide',body)
+        self.assertEqual(reception.context(self.store,received)['delivery_confirmation']['fulfillment'],'despacho')

@@ -75,6 +75,9 @@ def main():
                     try:
                         from scripts.toteat_sales_worker import sales_cycle
                         sales_cycle(inbox)
+                        if os.environ.get('OVEJA_CASH_CONTROL_ENABLED')=='1' and not cooldown_seconds(read_inbox(inbox.path,False)):
+                            from scripts.cash_toteat_worker import safe_sync_cycle
+                            safe_sync_cycle(ROOT)
                         from scripts.toteat_cancellations import cancellation_cycle
                         if not cooldown_seconds(read_inbox(inbox.path,False)):cancellation_cycle(inbox)
                         from scripts.delivery_worker import delivery_cycle

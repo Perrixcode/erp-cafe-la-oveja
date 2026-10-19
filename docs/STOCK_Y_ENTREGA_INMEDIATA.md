@@ -1,0 +1,11 @@
+# Stock físico y entrega inmediata web
+
+En Pedidos de tortas → Ingresar stock físico se muestra una tabla editable de productos del catálogo, ordenada por nombre y formato. El buscador admite nombre, formato y código, sin distinguir mayúsculas o acentos. Se pueden mostrar 10, 25, 50 o 100 productos por página. Los conteos pendientes se conservan al filtrar, paginar y durante el refresco general.
+
+Solo se guardan los productos modificados, hasta 100 por solicitud. Físico vacío significa desconocido y cero significa sin unidades. La reserva para vitrina no puede superar el físico cuando este se conoce. Disponible = físico menos reserva; no se vuelven a descontar los pedidos. El lote se valida y guarda en una sola transacción: cualquier versión desactualizada o conteo inválido cancela todas las escrituras. Cada producto mantiene historial individual con motivo y usuario autenticado. La ruta PUT `/api/stock/batch` conserva el permiso stock (socios), y la ruta anterior individual sigue compatible. No escribe inventario en Toteat.
+
+En la recepción de pedidos web pagados se ofrece Pasar a entrega inmediata. El socio elige retiro o despacho realizado, confirma que todos los productos ya fueron entregados e indica un motivo. El pedido aparece en Historial de entregadas, sin recorrer marcado/producción, conservando identidad y evidencia. No se crea otro pago, pedido ni movimiento de stock. Una fecha del comentario requiere revisar que el cambio haya sido acordado; jamás se infiere entrega a partir del pago o la dirección.
+
+Puede usarse el pago completo validado del pedido web abierto. Cuando existe evidencia de venta cerrada, esta tiene prioridad y debe estar saldada. Los pedidos sin pago validado, con alertas de anulación/documentos financieros o ya vinculados a un pedido no permiten este atajo. Una confirmación repetida no duplica eventos; las revisiones obsoletas se rechazan. El cierre posterior del lector conserva la decisión y no vuelve a agendar automáticamente.
+
+Pruebas: `test_stock_batch.py`, `test_stock_real_catalog.py`, `test_reception.py` y `test_toteat_web.py`, además de la suite general. QA visual con productos, clientes y pagos ficticios en escritorio y móvil; las capturas `qa/stock-count-*-fake.png` y `qa/web-immediate-fake.png` no contienen datos reales. La publicación de código no registra conteos ni entregas productivas.
