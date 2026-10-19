@@ -182,24 +182,27 @@ def overview(store,query):
           (SELECT MAX(id) FROM cc_source_reads GROUP BY endpoint) AND state='error' ''')]
         coverage=[dict(day=r['business_date'],endpoint=r['endpoint'],state=r['state'],reason=r['reason'],read_at=r['read_at']) for r in reads]
         observed_days={r['business_date'] for r in reads if r['state']!='error'}
+        from erp import cash_balance
+        expected_range=cash_balance.projection(db,f)
         metrics=dict(
           declared=metric(sums['declared'],'recorded_subset','Suma de C en fichas del rango; no saldo disponible.'),
           counted=metric(sums['counted'],'partial' if sums['pending'] else 'recorded_subset','Conteo físico confirmado solo de las fichas verificadas.'),
           pending=metric(sums['pending_amount'],'recorded_subset','C declarado aún pendiente de conteo.'),
           difference=metric(sums['difference'],'recorded_subset','Conteo menos C, solo en fichas contadas.'),
-          expected=metric(None,source='Toteat',reason='Movimientos y semántica del cierre pendientes; no hay esperado completo.'),
+          expected=metric(expected_range['final'],'provisional',source='Origen confirmado + flujos conocidos',reason='Saldo provisional del negocio; cobertura incompleta. Independiente del conteo físico.'),
           received=metric(None,reason='No se infiere recepción por guardar la declaración ni por un traslado pendiente.'))
         return dict(filters=f,version=settings['version'],as_of=stamp(),timezone='America/Santiago',metrics=metrics,
             counts=sums,rows=rows,groups=groups,daily=daily,options=options,source_sessions=sessions,source_sales=sales,
             coverage=dict(days_requested=len(daily),days_with_observations=len(observed_days),complete_days=0,
                           sources=coverage,latest_issues=latest_issues,state='incomplete'),
-            ledger=ledger_view(db,f),
-            notice='Control desde el 16/10/2026. El efectivo anterior requiere confirmación. Datos sin cobertura se muestran sin información.')
+            ledger=ledger_view(db,f),expected_range=expected_range,
+            notice='Datos de control desde '+settings['start_date']+'. El punto de partida global requiere confirmación administrativa; datos sin cobertura permanecen pendientes.')
 
 
 def execute(store,action,data,account):
     if account.get('role')!='partner':raise DomainError('Solo una persona autorizada puede configurar o registrar control de efectivo.',403)
     fields={
+      'balance-origin':{'cutoff_day','amount','evidence'},'classify-income':{'event_id','classification','evidence'},
       'location':{'name','kind'},'opening':{'location_id','amount','as_of','evidence'},
       'movement':{'kind','amount','from_id','to_id','occurred_at','reference','note'},
       'payment-link':{'event_id','payment_source','payment_id','amount'},
@@ -221,7 +224,10 @@ def execute(store,action,data,account):
             config=db.execute('SELECT * FROM cc_settings WHERE singleton=1').fetchone()
             if type(data.get('version')) is not int or data['version']!=config['version']:raise DomainError('Los datos cambiaron. Actualiza antes de guardar.',409)
             now=stamp();result={}
-            if action=='location':
+            if action in ('balance-origin','classify-income'):
+                from erp import cash_balance
+                result=cash_balance.mutate(db,action,data,actor,now)
+            elif action=='location':
                 kind=data.get('kind');name=text(data.get('name'),'Ubicación',100)
                 if kind not in {'register','safe','custody','transit'}:raise DomainError('Tipo de ubicación no válido.')
                 key=uuid4().hex;db.execute('INSERT INTO cc_locations VALUES(?,?,?,?,?)',(key,name,kind,actor,now));result={'id':key}

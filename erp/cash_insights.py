@@ -6,6 +6,7 @@ import hashlib,json,re,sqlite3
 from erp import cash_closures as cl,cash_review as review,cash_closure_calc as calc,cash_toteat as toteat
 from erp.cash_bags import canonical
 from erp.domain import DomainError
+from erp import cash_analytics_population as population
 PREFIX='/api/cash-insights'
 
 def initialize(db):
@@ -152,7 +153,11 @@ def aggregate(lines,kind):
  return dict(records=len(lines),reviewed_known=len(included),pending=len(lines)-len(included),without_difference=sum(v==0 for v in amounts),without_difference_percent=100*sum(v==0 for v in amounts)/len(amounts) if amounts else None,
   shortage=sum(-v for v in amounts if v<0) if amounts else None,surplus=sum(v for v in amounts if v>0) if amounts else None,shortage_count=sum(v<0 for v in amounts),surplus_count=sum(v>0 for v in amounts),
   handled=denominator if included else None,absolute_difference_percent=100*sum(abs(v) for v in amounts)/denominator if included and denominator>0 else None,
-  denominator_label='A físico declarado de los cierres incluidos' if kind=='cash' else 'C entregado declarado de las bolsas incluidas',closure_ids=[x['id'] for x in included])
+  shortage_frequency_percent=100*sum(v<0 for v in amounts)/len(amounts) if amounts else None,surplus_frequency_percent=100*sum(v>0 for v in amounts)/len(amounts) if amounts else None,
+  denominator_label='A físico declarado de los cierres incluidos' if kind=='cash' else 'Bruto declarado de los terminales incluidos' if kind=='mp' else 'C entregado declarado de las bolsas incluidas',closure_ids=[x['id'] for x in included])
+
+def mp_metric(rows):
+ return aggregate([dict(id=r['closure_id'],mp=dict(difference=r['difference'],denominator=r['declared'],eligible=r['eligible'])) for r in rows],'mp')
 
 def lines_db(db,f,start,end):
  rows=[dict(r) for r in db.execute('SELECT * FROM cl_closures WHERE business_date BETWEEN ? AND ? ORDER BY business_date,id',(max(start,'2026-10-16'),end))] if end>='2026-10-16' else []
@@ -172,9 +177,10 @@ def lines_db(db,f,start,end):
   if c['has_differences'] and c['resolution_state']!='resolved':pending.append(dict(cause='Diferencia sin resolución revisada',responsible='Administración',action='Revisar la diferencia y documentar su resolución'))
   if not owner['safe']:pending.append(dict(cause='Identidad sin comprobación documental',responsible='Administración',action='Conservar sin asignación hasta verificar la identidad'))
   corrections=db.execute("SELECT COUNT(*) FROM cl_versions WHERE closure_id=? AND action='save' AND reason<>''",(c['id'],)).fetchone()[0]
-  result.append(dict(pending_work=pending,created_at=c['created_at'],submitted_at=c['submitted_at'],delivered_at=c['delivery']['delivered_at'] if c['delivery'] else None,counted_at=bag['verified_at'] if bag else None,correction_versions=corrections,id=c['id'],date=c['business_date'],register_id=c['register_id'],register=c['register_name'],shift=c['shift_name'],owner=owner,status=c['status'],reviewed=c['reviewed'],resolution=c['resolution_state'],note=c['review']['note'] if c['review'] else None,
+  line=dict(pending_work=pending,created_at=c['created_at'],submitted_at=c['submitted_at'],delivered_at=c['delivery']['delivered_at'] if c['delivery'] else None,counted_at=bag['verified_at'] if bag else None,correction_versions=corrections,id=c['id'],date=c['business_date'],register_id=c['register_id'],register=c['register_name'],shift=c['shift_name'],owner=owner,status=c['status'],reviewed=c['reviewed'],resolution=c['resolution_state'],note=c['review']['note'] if c['review'] else None,
    cash=dict(difference=cash_diff,denominator=v['A'],eligible=bool(eligible and cash_diff is not None and v['A'] is not None)),delivery=dict(difference=bag_diff,denominator=bag['bag_amount'] if bag else None,eligible=bool(eligible and bag_diff is not None and bag['bag_amount'] is not None)),
-   source_coverage=v['coverage'],source_errors=[s for s in toteat.project(db,c['business_date'],c['register_id'],c['external_session_key'])['sources'].values() if s['state'] in ('error','missing','stale')]))
+   source_coverage=v['coverage'],source_errors=[s for s in toteat.project(db,c['business_date'],c['register_id'],c['external_session_key'])['sources'].values() if s['state'] in ('error','missing','stale')])
+  result.append(population.enrich(db,c,line))
  return result
 
 def operational_metrics(lines):
@@ -190,20 +196,33 @@ def operational_metrics(lines):
 def overview(store,query,account):
  allow(account);f=filters(query)
  with store.connect() as db:
-  db.execute('BEGIN');lines=lines_db(db,f,f['start'],f['end']);previous=lines_db(db,f,f['compare_start'],f['compare_end']);groups=[]
+  db.execute('BEGIN');groups=[]
+  bounds=db.execute('SELECT MIN(business_date),MAX(business_date) FROM cl_closures').fetchone()
+  all_lines=lines_db(db,dict(register=None,cashier=None,shift=None),bounds[0] or f['start'],bounds[1] or f['end'])
+  def selected(start,end):
+   return [r for r in all_lines if start<=r['date']<=end and (not f['register'] or r['register_id']==f['register']) and (not f['cashier'] or r['owner']['key']==f['cashier']) and (not f['shift'] or r['shift']==f['shift'])]
+  lines=selected(f['start'],f['end']);previous=selected(f['compare_start'],f['compare_end'])
+  # Resolve cross-closure overlaps before filters; narrowing to one cashier or
+  # date must not rehabilitate a duplicated economic interval.
+  all_terminals=terminal_history(db);all_mp=population.mp_rows(all_lines,all_terminals)
+  ids={r['id'] for r in lines};previous_ids={r['id'] for r in previous}
+  mp=[r for r in all_mp if r['closure_id'] in ids];previous_mp=[r for r in all_mp if r['closure_id'] in previous_ids]
+  current_coverage=population.coverage(db,f['start'],f['end']);previous_coverage=population.coverage(db,f['compare_start'],f['compare_end'])
+  sessions=population.known_sessions(db,f,lines,f['start'],f['end'])
   for dimension in ('cashier','register','shift','day'):
    buckets={}
    for row in lines:
     k,label=(row['owner']['key'],row['owner']['name']) if dimension=='cashier' else (row['register_id'],row['register']) if dimension=='register' else (row['shift'],row['shift']) if dimension=='shift' else (row['date'],row['date'])
     buckets.setdefault((k,label),[]).append(row)
-   groups.extend(dict(dimension=dimension,key=k,label=label,cash=aggregate(rows,'cash'),delivery=aggregate(rows,'delivery'),closure_ids=[r['id'] for r in rows]) for (k,label),rows in sorted(buckets.items(),key=lambda x:x[0][1]))
-  terminals=[r for r in terminal_history(db) if f['start']<=r['source']['business_date']<=f['end'] and (not f['register'] or f['register']==r['source']['register_id']) and (not f['cashier'] or f['cashier']==r['source']['responsible']['key']) and (not f['shift'] or f['shift']==r['source'].get('shift'))]
+   groups.extend(dict(dimension=dimension,key=k,label=label,cash=aggregate(rows,'cash'),delivery=aggregate(rows,'delivery'),mp=mp_metric([m for m in mp if m['closure_id'] in {r['id'] for r in rows}]),population=population.population(rows,[m for m in mp if m['closure_id'] in {r['id'] for r in rows}]),closure_ids=[r['id'] for r in rows]) for (k,label),rows in sorted(buckets.items(),key=lambda x:x[0][1]))
+  terminals=[r for r in all_terminals if f['start']<=r['source']['business_date']<=f['end'] and (not f['register'] or f['register']==r['source']['register_id']) and (not f['cashier'] or f['cashier']==r['source']['responsible']['key']) and (not f['shift'] or f['shift']==r['source'].get('shift'))]
   # Only the latest revision contributes. Card discrepancies never offset cash.
-  current=[r for r in terminals if not r['superseded']];verified=[r for r in current if r['comparison']['comparable']];diffs=[r['comparison']['difference'] for r in verified]
+  current=mp;verified=[r for r in current if r['eligible']];diffs=[r['difference'] for r in verified]
   people={json.loads(r[0])['key']:json.loads(r[0])['name'] for r in db.execute('SELECT responsible_json FROM cl_closures')};people['unassigned']='Sin asignación segura';registers=[dict(r) for r in db.execute('SELECT id,name FROM cl_registers ORDER BY name')];shifts=[r[0] for r in db.execute('SELECT DISTINCT shift_name FROM cl_closures ORDER BY shift_name')]
   readings=[dict(r) for r in db.execute('SELECT business_date,endpoint,state,reason,read_at FROM cc_source_reads WHERE id IN (SELECT MAX(id) FROM cc_source_reads WHERE business_date BETWEEN ? AND ? GROUP BY business_date,endpoint) ORDER BY business_date,endpoint',(f['start'],f['end']))]
   return dict(filters=f,as_of=cl.stamp(),timezone='America/Santiago',rows=lines,previous_rows=previous,groups=groups,
-   current={k:aggregate(lines,k) for k in ('cash','delivery')},previous={k:aggregate(previous,k) for k in ('cash','delivery')},previous_full_coverage=f['compare_start']>='2026-10-16',
+   current=dict({k:aggregate(lines,k) for k in ('cash','delivery')},mp=mp_metric(mp)),previous=dict({k:aggregate(previous,k) for k in ('cash','delivery')},mp=mp_metric(previous_mp)),previous_full_coverage=previous_coverage['complete'],
+   population=dict(population.population(lines,mp),known_sessions=len(sessions),without_linked_closure=sum(not s['closure_ids'] for s in sessions)),known_sessions=sessions,mp_rows=mp,current_coverage=current_coverage,previous_coverage=previous_coverage,
    terminal_reports=terminals,terminal_metrics=dict(records=len(current),reviewed=len(verified),pending=len(current)-len(verified),shortage=sum(-v for v in diffs if v<0) if diffs else None,surplus=sum(v for v in diffs if v>0) if diffs else None),
    registers=registers,cashiers=[dict(key=k,name=n) for k,n in sorted(people.items(),key=lambda p:p[1])],shifts=shifts,sources=readings,
    operations=operational_metrics(lines),available_for_payments=None,notice='Evaluación solo sobre diferencias revisadas, conocidas y con identidad segura. Las diferencias de caja y recepción de bolsa son métricas distintas; no se suman ni prueban responsabilidad. No hay ranking ni sanción automática. Disponible para pagos requiere efectivo contado/custodiado y obligaciones/restricciones identificadas.')

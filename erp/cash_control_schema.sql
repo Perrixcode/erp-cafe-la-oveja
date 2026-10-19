@@ -49,3 +49,21 @@ CREATE TABLE IF NOT EXISTS cc_audit (
  id INTEGER PRIMARY KEY, action TEXT NOT NULL, actor TEXT NOT NULL,
  payload_json TEXT NOT NULL, created_at TEXT NOT NULL
 );
+
+-- Global starting points and source classifications are annotations, not cash events.
+CREATE TABLE IF NOT EXISTS cc_balance_origins (
+ id TEXT PRIMARY KEY, cutoff_day TEXT NOT NULL, amount INTEGER NOT NULL CHECK(amount>=0),
+ evidence TEXT NOT NULL, actor TEXT NOT NULL, created_at TEXT NOT NULL,
+ supersedes TEXT UNIQUE REFERENCES cc_balance_origins(id)
+);
+CREATE TABLE IF NOT EXISTS cc_income_classifications (
+ id TEXT PRIMARY KEY, event_id TEXT NOT NULL REFERENCES cc_cash_events(id),
+ classification TEXT NOT NULL CHECK(classification IN ('other_external','already_in_sales')),
+ evidence TEXT NOT NULL, actor TEXT NOT NULL, created_at TEXT NOT NULL,
+ supersedes TEXT UNIQUE REFERENCES cc_income_classifications(id)
+);
+CREATE INDEX IF NOT EXISTS cc_income_event ON cc_income_classifications(event_id);
+CREATE TRIGGER IF NOT EXISTS cc_balance_origin_no_update BEFORE UPDATE ON cc_balance_origins BEGIN SELECT RAISE(ABORT,'Immutable starting point'); END;
+CREATE TRIGGER IF NOT EXISTS cc_balance_origin_no_delete BEFORE DELETE ON cc_balance_origins BEGIN SELECT RAISE(ABORT,'Immutable starting point'); END;
+CREATE TRIGGER IF NOT EXISTS cc_income_classification_no_update BEFORE UPDATE ON cc_income_classifications BEGIN SELECT RAISE(ABORT,'Immutable classification'); END;
+CREATE TRIGGER IF NOT EXISTS cc_income_classification_no_delete BEFORE DELETE ON cc_income_classifications BEGIN SELECT RAISE(ABORT,'Immutable classification'); END;
