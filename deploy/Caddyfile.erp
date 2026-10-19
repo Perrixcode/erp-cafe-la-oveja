@@ -15,6 +15,14 @@ erp.example.test {
     request_body @closure_attachment {
         max_size 3145728
     }
+    # V2 photos: 3 MiB binary becomes 4 MiB base64 plus JSON metadata.
+    @closure_v2_attachment {
+        method POST
+        path_regexp closure_v2_file ^/api/cash-closures/v2/[a-f0-9]{32}/(?:attach|reference-attach)$
+    }
+    request_body @closure_v2_attachment {
+        max_size 5242880
+    }
     # Saved weekly counting drafts only; up to 200 bags and their notes.
     @closure_batch {
         method POST
@@ -31,6 +39,10 @@ erp.example.test {
         not {
             method POST
             path_regexp closure_exempt ^/api/cash-closures/[a-f0-9]{32}/attach$
+        }
+        not {
+            method POST
+            path_regexp closure_v2_exempt ^/api/cash-closures/v2/[a-f0-9]{32}/(?:attach|reference-attach)$
         }
         not path /api/suppliers/documents /api/suppliers/documents/ /api/suppliers/invoices/*/files /api/suppliers/account-entries/*/files /api/suppliers/account-invoice-payments /api/suppliers/account-joint-payments
     }

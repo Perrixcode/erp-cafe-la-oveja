@@ -12,8 +12,8 @@ window.OvejaCashierV2Server=(()=>{
   const controller=new AbortController();
   return deadline((async()=>{
    const r=await fetch(path,{method:body?'POST':'GET',signal:controller.signal,credentials:'same-origin',cache:'no-store',headers:body?{'Content-Type':'application/json','X-ERP-Local':'1'}:{},body:body?JSON.stringify(body):undefined});
-   let data;try{data=await r.json();}catch{throw Error('Respuesta incompleta. Reintenta: la operación conserva su identificador.');}
-   if(!r.ok){const e=Error(data.error||'No se pudo completar.');e.status=r.status;throw e;}return data;
+   let data;try{data=await r.json();}catch{if(r.ok)throw Error('Respuesta incompleta. Reintenta: la operación conserva su identificador.');}
+   if(!r.ok){const fallback=r.status===413?'La foto o solicitud supera el límite de transferencia. Prueba una foto más pequeña.':r.status===401?'Tu sesión venció. Conserva este cierre abierto y vuelve a iniciar sesión.':'El servidor no pudo completar la solicitud (HTTP '+r.status+'). Tus datos siguen aquí; reintenta.';const e=Error(data?.error||fallback);e.status=r.status;throw e;}return data;
   })(),45000,'El servidor no respondió a tiempo. No se confirmó la operación. Tus datos siguen aquí; revisa la conexión y reintenta.',()=>controller.abort());
  }
  function enrich(v){
